@@ -1,0 +1,14 @@
+description: "A3 runtime gate"
+providers:
+  - id: exec:bun ../src/promptfoo/provider.ts
+    label: runtime-a3
+    config:
+      runtimeConfig: ../configs/openai-dev.yaml
+      runtimeCondition: A3
+      outputMode: summary
+prompts:
+  - label: runtime-a3
+    raw: " "
+    provider: runtime-a3
+tests:
+  - tests.complex.jsonl

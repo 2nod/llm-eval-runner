@@ -1,0 +1,2 @@
+{"vars":{"sample":{"id":"ep01_line01","ja":{"text":"……別に。","context":"不機嫌そうに目を逸らす"},"reference":{"en":"...Whatever."}}},"assert":[{"type":"javascript","value":"(() => { const record = JSON.parse(output); return typeof record?.final?.en === 'string' && record.final.en.length > 0; })()"}]}
+{"vars":{"sample":{"id":"ep01_line02","ja":{"text":"行こっか。"},"reference":{"en":"Shall we go?"}}},"assert":[{"type":"javascript","value":"(() => { const record = JSON.parse(output); return typeof record?.final?.en === 'string' && record.final.en.toLowerCase().includes('go'); })()"}]}

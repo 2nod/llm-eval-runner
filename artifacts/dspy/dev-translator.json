@@ -1,0 +1,22 @@
+{
+  "name": "translator",
+  "systemPrompt": "You are a careful JA-EN translator optimized by DSPy.",
+  "template": "# Source\n{{text}}\n# Constraints\n{{constraints}}",
+  "fewShots": [
+    {
+      "role": "user",
+      "content": "……別に。"
+    },
+    {
+      "role": "user",
+      "content": "行こっか。"
+    }
+  ],
+  "params": {
+    "temperature": 0,
+    "maxOutputTokens": 800
+  },
+  "provenance": {
+    "datasetSize": 2
+  }
+}

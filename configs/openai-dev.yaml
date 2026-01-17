@@ -1,0 +1,58 @@
+name: openai-dev
+runSettings:
+  concurrency: 2
+  maxRepairs: 2
+  judgeRuns: 3
+  cacheDir: ../.cache
+  outputDir: runs
+  resolvedPromptDir: ../runs/prompts
+  rpm: 60
+  tpm: 30000
+defaults:
+  constraints:
+    targetLang: en
+    tone: neutral
+    format:
+      keepLineBreaks: true
+  hardChecks:
+    noDisallowedJapanese: true
+    glossaryStrictMatches: true
+    noMetaTalk: true
+    formatPreserved: true
+    maxLength: 200
+components:
+  translator:
+    model:
+      provider: openai
+      name: gpt-5-mini
+      temperature: 1
+    prompt:
+      artifact: ../artifacts/dspy/dev-translator.json
+  translatorWithState:
+    model:
+      provider: openai
+      name: gpt-5-mini
+      temperature: 1
+  stateBuilder:
+    model:
+      provider: openai
+      name: gpt-5-mini
+      temperature: 1
+  verifier:
+    model:
+      provider: openai
+      name: gpt-5-mini
+      temperature: 1
+  repairer:
+    model:
+      provider: openai
+      name: gpt-5-mini
+      temperature: 1
+  judge:
+    model:
+      provider: openai
+      name: gpt-5-mini
+      temperature: 1
+promptArtifacts: {}
+langfuse:
+  enabled: false

@@ -1,0 +1,56 @@
+name: mock-dev
+runSettings:
+  concurrency: 2
+  maxRepairs: 2
+  judgeRuns: 3
+  cacheDir: ../.cache
+  outputDir: runs
+  resolvedPromptDir: ../runs/prompts
+  rpm: 60
+  tpm: 30000
+defaults:
+  constraints:
+    targetLang: en
+    tone: neutral
+    format:
+      keepLineBreaks: true
+  hardChecks:
+    noDisallowedJapanese: true
+    glossaryStrictMatches: true
+    noMetaTalk: true
+    formatPreserved: true
+    maxLength: 200
+components:
+  translator:
+    model:
+      provider: mock
+      name: translator-mock
+      temperature: 0.2
+  translatorWithState:
+    model:
+      provider: mock
+      name: translator-mock-stateful
+      temperature: 0.2
+  stateBuilder:
+    model:
+      provider: mock
+      name: state-mock
+      temperature: 0
+  verifier:
+    model:
+      provider: mock
+      name: verifier-mock
+      temperature: 0
+  repairer:
+    model:
+      provider: mock
+      name: repairer-mock
+      temperature: 0.1
+  judge:
+    model:
+      provider: mock
+      name: judge-mock
+      temperature: 0
+promptArtifacts: {}
+langfuse:
+  enabled: false
