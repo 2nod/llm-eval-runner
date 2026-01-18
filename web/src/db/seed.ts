@@ -21,6 +21,14 @@ function shouldSeedDatabase(dbPath: string) {
   return dbPath.startsWith("/tmp/");
 }
 
+function logSeed(message: string) {
+  console.log(`[seed] ${message}`);
+}
+
+function logSeedWarning(message: string) {
+  console.warn(`[seed] ${message}`);
+}
+
 function resolveSeedPath() {
   const configured = process.env["SEED_SCENES_PATH"];
   if (configured && configured.trim()) return configured;
@@ -40,25 +48,37 @@ function parseJsonl(content: string): SceneData[] {
 
 export async function seedDatabaseIfEmpty() {
   const dbPath = process.env["DATABASE_URL"] ?? "./data/eval.db";
-  if (!shouldSeedDatabase(dbPath)) return;
+  const shouldSeed = shouldSeedDatabase(dbPath);
+  logSeed(`Seed check: dbPath=${dbPath} shouldSeed=${shouldSeed}`);
+  if (!shouldSeed) {
+    logSeed("Skip: SEED_DATABASE not set and dbPath is not /tmp.");
+    return;
+  }
 
   const existing = await db
     .select({ count: sql<number>`count(*)` })
     .from(schema.scenes);
   const count = existing[0]?.count ?? 0;
-  if (count > 0) return;
+  if (count > 0) {
+    logSeed(`Skip: scenes already present (count=${count}).`);
+    return;
+  }
 
   const seedPath = resolveSeedPath();
+  logSeed(`Using seed file: ${seedPath}`);
   let content: string;
   try {
     content = await readFile(seedPath, "utf-8");
   } catch (err) {
-    console.warn(`Seed file not found: ${seedPath}`);
+    logSeedWarning(`Seed file not found: ${seedPath}`);
     return;
   }
 
   const scenes = parseJsonl(content);
-  if (scenes.length === 0) return;
+  if (scenes.length === 0) {
+    logSeedWarning("Seed file is empty.");
+    return;
+  }
 
   const split = process.env["SEED_SCENES_SPLIT"] ?? "dev";
   const rows = scenes.map((scene) => ({
@@ -76,5 +96,5 @@ export async function seedDatabaseIfEmpty() {
   }));
 
   await db.insert(schema.scenes).values(rows);
-  console.log(`Seeded ${rows.length} scenes from ${seedPath}`);
+  logSeed(`Seeded ${rows.length} scenes from ${seedPath} (split=${split}).`);
 }
