@@ -1,29 +1,39 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
   Link,
   Outlet,
   useMatchRoute,
 } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { fetchScenes } from "@/lib/api";
-import type { Scene } from "@/lib/api";
+import { type ChangeEvent, useCallback, useState } from "react";
 
-export const Route = createFileRoute("/scenes")({
-  component: ScenesPage,
-});
+import { fetchScenes, type Scene } from "@/lib/api";
 
-function ScenesPage() {
+const ScenesPage = () => {
   const matchRoute = useMatchRoute();
-  const isDetailRoute = !!matchRoute({ to: "/scenes/$sceneId", fuzzy: false });
+  const isDetailRoute = !!matchRoute({ fuzzy: false, to: "/scenes/$sceneId" });
   const [split, setSplit] = useState<string>("");
   const [search, setSearch] = useState("");
 
+  const handleSearchChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setSearch(event.target.value);
+    },
+    []
+  );
+
+  const handleSplitChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      setSplit(event.target.value);
+    },
+    []
+  );
+
   const { data, isLoading } = useQuery({
-    queryKey: ["scenes", { split, search }],
-    queryFn: () =>
-      fetchScenes({ split: split || undefined, search: search || undefined }),
     enabled: !isDetailRoute,
+    queryFn: () =>
+      fetchScenes({ search: search || undefined, split: split || undefined }),
+    queryKey: ["scenes", { search, split }],
   });
 
   if (isDetailRoute) {
@@ -44,12 +54,12 @@ function ScenesPage() {
           type="text"
           placeholder="Search scenes..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={handleSearchChange}
           className="flex h-9 w-64 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
         <select
           value={split}
-          onChange={(e) => setSplit(e.target.value)}
+          onChange={handleSplitChange}
           className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="">All splits</option>
@@ -73,19 +83,16 @@ function ScenesPage() {
       )}
     </div>
   );
-}
+};
 
-function SceneCard({ scene }: { scene: Scene }) {
+const SceneCard = ({ scene }: { scene: Scene }) => {
   const segments = scene.segments ?? [];
   const characterStates = scene.characterStates ?? {};
   const fatalRisks = scene.evalTargets?.fatal_risks ?? [];
-  const riskCounts = fatalRisks.reduce(
-    (acc, risk) => {
-      acc[risk.type] = (acc[risk.type] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
+  const riskCounts: Record<string, number> = {};
+  for (const risk of fatalRisks) {
+    riskCounts[risk.type] = (riskCounts[risk.type] ?? 0) + 1;
+  }
 
   return (
     <Link
@@ -137,4 +144,8 @@ function SceneCard({ scene }: { scene: Scene }) {
       )}
     </Link>
   );
-}
+};
+
+export const Route = createFileRoute("/scenes")({
+  component: ScenesPage,
+});

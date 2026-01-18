@@ -1,6 +1,6 @@
 const API_BASE = "/api";
 
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+const fetchJson = async <T>(url: string, options?: RequestInit): Promise<T> => {
   const response = await fetch(`${API_BASE}${url}`, {
     ...options,
     headers: {
@@ -15,7 +15,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   }
 
   return response.json();
-}
+};
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -193,7 +193,7 @@ export interface CreateExperimentInput {
   name: string;
   description?: string;
   config: Record<string, unknown>;
-  conditions: Array<"A0" | "A1" | "A2" | "A3">;
+  conditions: ("A0" | "A1" | "A2" | "A3")[];
   sceneFilter?: {
     split?: "train" | "dev" | "test";
     tags?: string[];
@@ -232,7 +232,7 @@ export interface Run {
 export interface ExperimentResults {
   experiment: Experiment;
   runs: Run[];
-  aggregated: Array<Record<string, unknown>>;
+  aggregated: Record<string, unknown>[];
   scenes?: Scene[];
 }
 
@@ -251,56 +251,56 @@ export interface SceneListParams {
   offset?: number;
 }
 
-export async function fetchScenes(
-  params: SceneListParams = {},
-): Promise<PaginatedResponse<Scene>> {
-  const searchParams = new URLSearchParams();
-  if (params.split) searchParams.set("split", params.split);
-  if (params.search) searchParams.set("search", params.search);
-  if (params.limit) searchParams.set("limit", String(params.limit));
-  if (params.offset) searchParams.set("offset", String(params.offset));
+const buildSceneQuery = (params: SceneListParams): string => {
+  const entries: [string, string][] = [];
 
-  const query = searchParams.toString();
+  if (params.limit) {
+    entries.push(["limit", String(params.limit)]);
+  }
+  if (params.offset) {
+    entries.push(["offset", String(params.offset)]);
+  }
+  if (params.search) {
+    entries.push(["search", params.search]);
+  }
+  if (params.split) {
+    entries.push(["split", params.split]);
+  }
+
+  return new URLSearchParams(entries).toString();
+};
+
+export const fetchScenes = (
+  params: SceneListParams = {}
+): Promise<PaginatedResponse<Scene>> => {
+  const query = buildSceneQuery(params);
   return fetchJson(`/scenes${query ? `?${query}` : ""}`);
-}
+};
 
-export async function fetchScene(id: string): Promise<{ data: Scene }> {
-  return fetchJson(`/scenes/${id}`);
-}
+export const fetchScene = (id: string): Promise<{ data: Scene }> =>
+  fetchJson(`/scenes/${id}`);
 
-export async function fetchExperiments(): Promise<
-  PaginatedResponse<Experiment>
-> {
-  return fetchJson("/experiments");
-}
+export const fetchExperiments = (): Promise<PaginatedResponse<Experiment>> =>
+  fetchJson("/experiments");
 
-export async function createExperiment(
-  payload: CreateExperimentInput,
-): Promise<{ data: Experiment }> {
-  return fetchJson("/experiments", {
-    method: "POST",
+export const createExperiment = (
+  payload: CreateExperimentInput
+): Promise<{ data: Experiment }> =>
+  fetchJson("/experiments", {
     body: JSON.stringify(payload),
+    method: "POST",
   });
-}
 
-export async function fetchExperiment(
-  id: string,
-): Promise<{ data: Experiment }> {
-  return fetchJson(`/experiments/${id}`);
-}
+export const fetchExperiment = (id: string): Promise<{ data: Experiment }> =>
+  fetchJson(`/experiments/${id}`);
 
-export async function fetchExperimentResults(
-  id: string,
-): Promise<{ data: ExperimentResults }> {
-  return fetchJson(`/experiments/${id}/results`);
-}
+export const fetchExperimentResults = (
+  id: string
+): Promise<{ data: ExperimentResults }> =>
+  fetchJson(`/experiments/${id}/results`);
 
-export async function startExperiment(
-  id: string,
-): Promise<StartExperimentResponse> {
-  return fetchJson(`/experiments/${id}/start`, { method: "POST" });
-}
+export const startExperiment = (id: string): Promise<StartExperimentResponse> =>
+  fetchJson(`/experiments/${id}/start`, { method: "POST" });
 
-export async function fetchStats(): Promise<{ data: StatsOverview }> {
-  return fetchJson("/stats/overview");
-}
+export const fetchStats = (): Promise<{ data: StatsOverview }> =>
+  fetchJson("/stats/overview");

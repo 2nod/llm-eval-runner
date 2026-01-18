@@ -1,56 +1,57 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  type ChangeEvent,
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import {
   fetchExperiment,
   fetchExperimentResults,
   startExperiment,
   type Experiment,
+  type ExperimentResults,
   type Run,
+  type Scene,
 } from "@/lib/api";
 
-export const Route = createFileRoute("/experiments/$experimentId")({
-  component: ExperimentDetailPage,
-});
-
 const CONDITION_ORDER = ["A0", "A1", "A2", "A3"] as const;
+const CONDITION_INDEX = new Map(
+  CONDITION_ORDER.map((condition, index) => [condition, index])
+);
+const STATUS_COLORS = {
+  completed: "bg-green-100 text-green-700",
+  draft: "bg-muted text-muted-foreground",
+  failed: "bg-red-100 text-red-700",
+  running: "bg-blue-100 text-blue-700",
+};
 
-function ExperimentDetailPage() {
+const ExperimentDetailPage = () => {
   const { experimentId } = Route.useParams();
-  const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["experiment", experimentId],
     queryFn: () => fetchExperiment(experimentId),
+    queryKey: ["experiment", experimentId],
   });
 
-  const startMutation = useMutation({
-    mutationFn: () => startExperiment(experimentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["experiment", experimentId] });
-      queryClient.invalidateQueries({ queryKey: ["experiments"] });
-      queryClient.invalidateQueries({
-        queryKey: ["experiment", experimentId, "results"],
-      });
-    },
-  });
+  const startMutation = useStartExperimentMutation(experimentId);
+  const handleStart = useCallback(() => {
+    startMutation.mutate();
+  }, [startMutation]);
 
   if (isLoading) {
     return <div className="text-muted-foreground">Loading...</div>;
   }
 
-  if (error || !data) {
+  if (error || data === undefined) {
     return <div className="text-destructive">Failed to load experiment</div>;
   }
 
   const experiment = data.data;
-
-  const statusColors = {
-    draft: "bg-muted text-muted-foreground",
-    running: "bg-blue-100 text-blue-700",
-    completed: "bg-green-100 text-green-700",
-    failed: "bg-red-100 text-red-700",
-  };
 
   return (
     <div className="space-y-6">
@@ -63,7 +64,7 @@ function ExperimentDetailPage() {
         </Link>
         <h1 className="text-2xl font-bold">{experiment.name}</h1>
         <span
-          className={`rounded px-2 py-0.5 text-sm ${statusColors[experiment.status]}`}
+          className={`rounded px-2 py-0.5 text-sm ${STATUS_COLORS[experiment.status]}`}
         >
           {experiment.status}
         </span>
@@ -112,13 +113,16 @@ function ExperimentDetailPage() {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => startMutation.mutate()}
+              onClick={handleStart}
               disabled={startMutation.isPending}
               className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {startMutation.isPending ? "Starting..." : "Start Experiment"}
             </button>
-            <button className="rounded-md border px-4 py-2 text-sm hover:bg-muted">
+            <button
+              type="button"
+              className="rounded-md border px-4 py-2 text-sm hover:bg-muted"
+            >
               Edit
             </button>
           </div>
@@ -139,18 +143,18 @@ function ExperimentDetailPage() {
       />
     </div>
   );
-}
+};
 
 type Condition = (typeof CONDITION_ORDER)[number];
 
-type RunGroup = {
+interface RunGroup {
   key: string;
   sceneIdLabel: string;
   segmentT: number | null;
   segmentText: string | null;
   speaker: string | null;
   runs: Run[];
-};
+}
 
 type ComparisonGroup = RunGroup & {
   baselineRun: Run;
@@ -161,7 +165,7 @@ type ComparisonGroup = RunGroup & {
   improved: boolean;
 };
 
-type ConditionSummary = {
+interface ConditionSummary {
   condition: Condition;
   totalRuns: number;
   avgOverall: number | null;
@@ -170,7 +174,7 @@ type ConditionSummary = {
   avgConstraintCompliance: number | null;
   needsReviewRate: number | null;
   avgIssues: number | null;
-};
+}
 
 const CONDITION_FEATURES: Record<
   Condition,
@@ -183,66 +187,75 @@ const CONDITION_FEATURES: Record<
 };
 
 const STATUS_ORDER: Record<NonNullable<Run["status"]>, number> = {
-  ok: 0,
-  needs_review: 1,
   error: 2,
+  needs_review: 1,
+  ok: 0,
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
 
-function isNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
+const isNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
 
-function average(values: number[]): number | null {
-  if (values.length === 0) return null;
+const average = (values: number[]): number | null => {
+  if (values.length === 0) {
+    return null;
+  }
   return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
+};
 
-function getOverallScore(run: Run | null | undefined): number | null {
-  if (!run?.scores) return null;
+const getOverallScore = (run: Run | null | undefined): number | null => {
+  if (!run?.scores) {
+    return null;
+  }
   const value = run.scores["overall"];
   return isNumber(value) ? value : null;
-}
+};
 
-function getJudgeScore(
+const getJudgeScore = (
   run: Run | null | undefined,
-  key: "adequacy" | "fluency" | "constraintCompliance",
-): number | null {
-  if (!run?.scores) return null;
-  const judge = run.scores["judge"];
-  if (!isRecord(judge)) return null;
+  key: "adequacy" | "fluency" | "constraintCompliance"
+): number | null => {
+  if (!run?.scores) {
+    return null;
+  }
+  const { judge } = run.scores;
+  if (!isRecord(judge)) {
+    return null;
+  }
   const value = judge[key];
   return isNumber(value) ? value : null;
-}
+};
 
-function getIssueCount(run: Run | null | undefined): number | null {
-  if (!run?.issues || !Array.isArray(run.issues)) return null;
+const getIssueCount = (run: Run | null | undefined): number | null => {
+  if (!run?.issues || !Array.isArray(run.issues)) {
+    return null;
+  }
   return run.issues.length;
-}
+};
 
-function getHardFailCount(run: Run | null | undefined): number | null {
-  if (!run?.hardChecks || !Array.isArray(run.hardChecks)) return null;
+const getHardFailCount = (run: Run | null | undefined): number | null => {
+  if (!run?.hardChecks || !Array.isArray(run.hardChecks)) {
+    return null;
+  }
   return run.hardChecks.filter(
-    (check) => isRecord(check) && check["passed"] === false,
+    (check) => isRecord(check) && check["passed"] === false
   ).length;
-}
+};
 
-function getStatus(run: Run | null | undefined): NonNullable<Run["status"]> {
-  return run?.status ?? "ok";
-}
+const getStatus = (run: Run | null | undefined): NonNullable<Run["status"]> =>
+  run?.status ?? "ok";
 
-function getStatusRank(run: Run | null | undefined): number {
+const getStatusRank = (run: Run | null | undefined): number => {
   const status = getStatus(run);
   return STATUS_ORDER[status] ?? 0;
-}
+};
 
-function summarizeCondition(
+const summarizeCondition = (
   runs: Run[],
-  condition: Condition,
-): ConditionSummary {
+  condition: Condition
+): ConditionSummary => {
   const filtered = runs.filter((run) => run.condition === condition);
   const overallScores = filtered.map(getOverallScore).filter(isNumber);
   const adequacyScores = filtered
@@ -256,45 +269,47 @@ function summarizeCondition(
     .filter(isNumber);
   const issueCounts = filtered.map(getIssueCount).filter(isNumber);
   const needsReviewCount = filtered.filter(
-    (run) => getStatus(run) !== "ok",
+    (run) => getStatus(run) !== "ok"
   ).length;
 
   return {
-    condition,
-    totalRuns: filtered.length,
-    avgOverall: average(overallScores),
     avgAdequacy: average(adequacyScores),
-    avgFluency: average(fluencyScores),
     avgConstraintCompliance: average(constraintScores),
+    avgFluency: average(fluencyScores),
+    avgIssues: average(issueCounts),
+    avgOverall: average(overallScores),
+    condition,
     needsReviewRate: filtered.length
       ? needsReviewCount / filtered.length
       : null,
-    avgIssues: average(issueCounts),
+    totalRuns: filtered.length,
   };
-}
+};
 
-function formatScore(value: number | null): string {
-  return value === null ? "—" : value.toFixed(3);
-}
+const formatScore = (value: number | null): string =>
+  value === null ? "—" : value.toFixed(3);
 
-function formatRate(value: number | null): string {
-  return value === null ? "—" : `${Math.round(value * 100)}%`;
-}
+const formatRate = (value: number | null): string =>
+  value === null ? "—" : `${Math.round(value * 100)}%`;
 
-function formatDelta(value: number | null, digits = 3): string {
-  if (value === null) return "—";
+const formatDelta = (value: number | null, digits = 3): string => {
+  if (value === null) {
+    return "—";
+  }
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(digits)}`;
-}
+};
 
-function formatDeltaRate(value: number | null): string {
-  if (value === null) return "—";
+const formatDeltaRate = (value: number | null): string => {
+  if (value === null) {
+    return "—";
+  }
   const percent = value * 100;
   const sign = percent > 0 ? "+" : "";
   return `${sign}${percent.toFixed(1)}%`;
-}
+};
 
-function deltaClass(delta: number | null, invert = false): string {
+const deltaClass = (delta: number | null, invert = false): string => {
   if (delta === null || delta === 0) {
     return "bg-muted text-muted-foreground";
   }
@@ -302,9 +317,24 @@ function deltaClass(delta: number | null, invert = false): string {
   return adjusted > 0
     ? "bg-green-100 text-green-700"
     : "bg-red-100 text-red-700";
-}
+};
 
-function describeConditionDiff(base: Condition, compare: Condition): string[] {
+const formatDeltaTwo = (value: number | null) => formatDelta(value, 2);
+
+const getStatusDeltaClass = (statusDelta: number): string => {
+  if (statusDelta === 0) {
+    return "bg-muted text-muted-foreground";
+  }
+  if (statusDelta < 0) {
+    return "bg-green-100 text-green-700";
+  }
+  return "bg-red-100 text-red-700";
+};
+
+const describeConditionDiff = (
+  base: Condition,
+  compare: Condition
+): string[] => {
   const baseFeatures = CONDITION_FEATURES[base];
   const compareFeatures = CONDITION_FEATURES[compare];
   const changes: string[] = [];
@@ -315,17 +345,20 @@ function describeConditionDiff(base: Condition, compare: Condition): string[] {
     changes.push(compareFeatures.verify ? "+verify/repair" : "-verify/repair");
   }
   return changes.length > 0 ? changes : ["same pipeline features"];
-}
+};
 
-function pickComparisonPair(available: Condition[]): [Condition, Condition] {
-  if (available.includes("A0") && available.includes("A3")) {
-    return ["A0", "A3"];
-  }
-  if (available.includes("A0") && available.includes("A1")) {
-    return ["A0", "A1"];
-  }
-  if (available.includes("A2") && available.includes("A3")) {
-    return ["A2", "A3"];
+const pickComparisonPair = (available: Condition[]): [Condition, Condition] => {
+  const preferredPairs: [Condition, Condition][] = [
+    ["A0", "A3"],
+    ["A0", "A1"],
+    ["A2", "A3"],
+  ];
+  const match = preferredPairs.find(
+    ([baseline, compare]) =>
+      available.includes(baseline) && available.includes(compare)
+  );
+  if (match) {
+    return match;
   }
   if (available.length >= 2) {
     return [available[0], available[1]];
@@ -334,406 +367,700 @@ function pickComparisonPair(available: Condition[]): [Condition, Condition] {
     return [available[0], available[0]];
   }
   return ["A0", "A1"];
-}
+};
 
-function ResultsSection({
-  experimentId,
-  status,
-  conditions,
+const formatSegmentSuffix = (segmentT: number | null) =>
+  segmentT === null ? "" : ` · t=${segmentT}`;
+
+const getResultsSummaryText = ({
+  comparisonCount,
+  isDraft,
+  runCount,
+  segmentCount,
+  showingCompare,
 }: {
+  comparisonCount: number;
+  isDraft: boolean;
+  runCount: number;
+  segmentCount: number;
+  showingCompare: boolean;
+}) => {
+  if (isDraft) {
+    return "Run the experiment to see results.";
+  }
+  if (showingCompare) {
+    return `${comparisonCount} segment pairs`;
+  }
+  return `${runCount} runs across ${segmentCount} segments`;
+};
+
+const getResultsVisibility = ({
+  comparisonCount,
+  groupedCount,
+  hasError,
+  isDraft,
+  isLoading,
+  runCount,
+  showingCompare,
+}: {
+  comparisonCount: number;
+  groupedCount: number;
+  hasError: boolean;
+  isDraft: boolean;
+  isLoading: boolean;
+  runCount: number;
+  showingCompare: boolean;
+}) => {
+  const ready = !isLoading && !hasError && !isDraft;
+
+  return {
+    showComparisons: ready && showingCompare && comparisonCount > 0,
+    showNoPairs: ready && showingCompare && comparisonCount === 0,
+    showNoRuns: ready && runCount === 0,
+    showRuns: ready && !showingCompare && groupedCount > 0,
+  };
+};
+
+const getDelta = (baseline: number | null, compare: number | null) =>
+  baseline !== null && compare !== null ? compare - baseline : null;
+
+const isImprovedComparison = (
+  scoreDelta: number | null,
+  issueDelta: number | null,
+  statusDelta: number
+) =>
+  (scoreDelta !== null && scoreDelta > 0.01) ||
+  (issueDelta !== null && issueDelta < 0) ||
+  statusDelta < 0;
+
+const buildSceneMap = (scenes: Scene[] | undefined) =>
+  new Map((scenes ?? []).map((scene) => [scene.id, scene]));
+
+const getSegmentT = (run: Run) =>
+  typeof run.segmentT === "number" ? run.segmentT : null;
+
+const getRunGroupKey = (run: Run, segmentT: number | null) =>
+  `${run.sceneId ?? "unknown"}:${segmentT ?? "unknown"}`;
+
+const getSceneLabel = (scene: Scene | undefined, run: Run) =>
+  scene?.sceneId ?? run.sceneId ?? "Unknown scene";
+
+const getSegmentForRun = (scene: Scene | undefined, segmentT: number | null) =>
+  scene?.segments?.find((segment) => segment.t === segmentT);
+
+const createRunGroup = ({
+  key,
+  sceneIdLabel,
+  segment,
+  segmentT,
+}: {
+  key: string;
+  sceneIdLabel: string;
+  segment: Scene["segments"][number] | undefined;
+  segmentT: number | null;
+}): RunGroup => ({
+  key,
+  runs: [],
+  sceneIdLabel,
+  segmentT,
+  segmentText: segment?.text ?? null,
+  speaker: segment?.speaker ?? null,
+});
+
+const getOrCreateRunGroup = (
+  groups: Map<string, RunGroup>,
+  run: Run,
+  scenesById: Map<string, Scene>
+) => {
+  const segmentT = getSegmentT(run);
+  const scene = run.sceneId ? scenesById.get(run.sceneId) : undefined;
+  const key = getRunGroupKey(run, segmentT);
+  const existing = groups.get(key);
+  if (existing) {
+    return existing;
+  }
+  const group = createRunGroup({
+    key,
+    sceneIdLabel: getSceneLabel(scene, run),
+    segment: getSegmentForRun(scene, segmentT),
+    segmentT,
+  });
+  groups.set(key, group);
+  return group;
+};
+
+const buildRunGroups = (runs: Run[], scenesById: Map<string, Scene>) => {
+  const groups = new Map<string, RunGroup>();
+
+  for (const run of runs) {
+    const group = getOrCreateRunGroup(groups, run, scenesById);
+    group.runs.push(run);
+  }
+
+  return groups;
+};
+
+const sortRunGroups = (groups: Map<string, RunGroup>) => {
+  const list = [...groups.values()].map((group) => ({
+    ...group,
+    runs: [...group.runs].toSorted((a, b) => {
+      const aIndex = CONDITION_INDEX.get(a.condition) ?? 99;
+      const bIndex = CONDITION_INDEX.get(b.condition) ?? 99;
+      return aIndex - bIndex;
+    }),
+  }));
+
+  return list.toSorted((a, b) => {
+    if (a.sceneIdLabel === b.sceneIdLabel) {
+      return (a.segmentT ?? 0) - (b.segmentT ?? 0);
+    }
+    return a.sceneIdLabel.localeCompare(b.sceneIdLabel);
+  });
+};
+
+const buildGroupedRuns = (results: ExperimentResults | undefined) => {
+  if (!results) {
+    return [];
+  }
+
+  const scenesById = buildSceneMap(results.scenes);
+  const groups = buildRunGroups(results.runs, scenesById);
+
+  return sortRunGroups(groups);
+};
+
+const filterGroupedRuns = (
+  groupedAll: RunGroup[],
+  conditionFilter: "all" | Condition
+) =>
+  conditionFilter === "all"
+    ? groupedAll
+    : groupedAll.filter((group) =>
+        group.runs.some((run) => run.condition === conditionFilter)
+      );
+
+const buildComparisonGroup = (
+  group: RunGroup,
+  baselineCondition: Condition,
+  compareCondition: Condition
+): ComparisonGroup | null => {
+  const baselineRun = group.runs.find(
+    (run) => run.condition === baselineCondition
+  );
+  const compareRun = group.runs.find(
+    (run) => run.condition === compareCondition
+  );
+  if (!baselineRun || !compareRun) {
+    return null;
+  }
+  const scoreDelta = getDelta(
+    getOverallScore(baselineRun),
+    getOverallScore(compareRun)
+  );
+  const issueDelta = getDelta(
+    getIssueCount(baselineRun),
+    getIssueCount(compareRun)
+  );
+  const statusDelta = getStatusRank(compareRun) - getStatusRank(baselineRun);
+  const improved = isImprovedComparison(scoreDelta, issueDelta, statusDelta);
+
+  return {
+    ...group,
+    baselineRun,
+    compareRun,
+    improved,
+    issueDelta,
+    scoreDelta,
+    statusDelta,
+  };
+};
+
+const buildComparisonGroups = (
+  groupedAll: RunGroup[],
+  baselineCondition: Condition,
+  compareCondition: Condition,
+  showImprovedOnly: boolean
+) => {
+  const list = groupedAll
+    .map((group) =>
+      buildComparisonGroup(group, baselineCondition, compareCondition)
+    )
+    .filter((group): group is ComparisonGroup => !!group);
+
+  if (!showImprovedOnly) {
+    return list;
+  }
+
+  return list.filter((group) => group.improved);
+};
+
+const getComparisonSummary = (
+  results: ExperimentResults | undefined,
+  baselineCondition: Condition,
+  compareCondition: Condition
+) => {
+  if (!results) {
+    return null;
+  }
+  return {
+    baseline: summarizeCondition(results.runs, baselineCondition),
+    compare: summarizeCondition(results.runs, compareCondition),
+  };
+};
+
+interface ResultsSectionProps {
   experimentId: string;
   status: Experiment["status"];
   conditions: string[];
-}) {
+}
+
+const useResultsControls = (conditions: string[]) => {
   const [conditionFilter, setConditionFilter] = useState<"all" | Condition>(
-    "all",
+    "all"
   );
   const availableConditions = useMemo(
     () => CONDITION_ORDER.filter((condition) => conditions.includes(condition)),
-    [conditions],
+    [conditions]
   );
-  const comparisonEnabled = availableConditions.length > 1;
   const [viewMode, setViewMode] = useState<"runs" | "compare">(
-    comparisonEnabled ? "compare" : "runs",
+    availableConditions.length > 1 ? "compare" : "runs"
   );
   const [baselineCondition, setBaselineCondition] = useState<Condition>(
-    () => pickComparisonPair(availableConditions)[0],
+    () => pickComparisonPair(availableConditions)[0]
   );
   const [compareCondition, setCompareCondition] = useState<Condition>(
-    () => pickComparisonPair(availableConditions)[1],
+    () => pickComparisonPair(availableConditions)[1]
   );
   const [showImprovedOnly, setShowImprovedOnly] = useState(false);
 
   useEffect(() => {
-    if (!comparisonEnabled) {
+    if (availableConditions.length <= 1) {
       setViewMode("runs");
       return;
     }
     const [defaultBase, defaultCompare] =
       pickComparisonPair(availableConditions);
+    const baselineValid = availableConditions.includes(baselineCondition);
+    const compareValid = availableConditions.includes(compareCondition);
     if (
-      !availableConditions.includes(baselineCondition) ||
-      !availableConditions.includes(compareCondition) ||
+      !baselineValid ||
+      !compareValid ||
       baselineCondition === compareCondition
     ) {
       setBaselineCondition(defaultBase);
       setCompareCondition(defaultCompare);
     }
-  }, [
-    availableConditions,
-    baselineCondition,
-    compareCondition,
-    comparisonEnabled,
-  ]);
+  }, [availableConditions, baselineCondition, compareCondition]);
 
   useEffect(() => {
-    if (
-      conditionFilter !== "all" &&
-      !availableConditions.includes(conditionFilter)
-    ) {
+    if (conditionFilter === "all") {
+      return;
+    }
+    if (!availableConditions.includes(conditionFilter)) {
       setConditionFilter("all");
     }
   }, [availableConditions, conditionFilter]);
 
+  const showingCompare =
+    viewMode === "compare" && availableConditions.length > 1;
+
+  return {
+    availableConditions,
+    baselineCondition,
+    compareCondition,
+    conditionFilter,
+    setBaselineCondition,
+    setCompareCondition,
+    setConditionFilter,
+    setShowImprovedOnly,
+    setViewMode,
+    showImprovedOnly,
+    showingCompare,
+    viewMode,
+  };
+};
+
+const useResultsData = ({
+  baselineCondition,
+  compareCondition,
+  conditionFilter,
+  experimentId,
+  showImprovedOnly,
+  status,
+}: {
+  baselineCondition: Condition;
+  compareCondition: Condition;
+  conditionFilter: "all" | Condition;
+  experimentId: string;
+  showImprovedOnly: boolean;
+  status: Experiment["status"];
+}) => {
   const resultsQuery = useQuery({
-    queryKey: ["experiment", experimentId, "results"],
-    queryFn: () => fetchExperimentResults(experimentId),
     enabled: !!experimentId,
+    queryFn: () => fetchExperimentResults(experimentId),
+    queryKey: ["experiment", experimentId, "results"],
     refetchInterval: status === "running" ? 5000 : false,
   });
-
   const results = resultsQuery.data?.data;
-  const groupedAll = useMemo(() => {
-    if (!results) return [];
-
-    const scenesById = new Map(
-      (results.scenes ?? []).map((scene) => [scene.id, scene]),
-    );
-
-    const groups = new Map<string, RunGroup>();
-
-    for (const run of results.runs) {
-      const scene = run.sceneId ? scenesById.get(run.sceneId) : undefined;
-      const segmentT = typeof run.segmentT === "number" ? run.segmentT : null;
-      const segment = scene?.segments?.find((s) => s.t === segmentT);
-      const sceneIdLabel = scene?.sceneId ?? run.sceneId ?? "Unknown scene";
-      const key = `${run.sceneId ?? "unknown"}:${segmentT ?? "unknown"}`;
-
-      const existing = groups.get(key);
-      const target = existing ?? {
-        key,
-        sceneIdLabel,
-        segmentT,
-        segmentText: segment?.text ?? null,
-        speaker: segment?.speaker ?? null,
-        runs: [],
-      };
-      target.runs.push(run);
-      if (!existing) {
-        groups.set(key, target);
-      }
-    }
-
-    const conditionIndex = new Map(
-      CONDITION_ORDER.map((condition, index) => [condition, index]),
-    );
-
-    const list = Array.from(groups.values())
-      .map((group) => ({
-        ...group,
-        runs: [...group.runs].sort((a, b) => {
-          const aIndex = conditionIndex.get(a.condition) ?? 99;
-          const bIndex = conditionIndex.get(b.condition) ?? 99;
-          return aIndex - bIndex;
-        }),
-      }))
-      .sort((a, b) => {
-        if (a.sceneIdLabel === b.sceneIdLabel) {
-          return (a.segmentT ?? 0) - (b.segmentT ?? 0);
-        }
-        return a.sceneIdLabel.localeCompare(b.sceneIdLabel);
-      });
-
-    return list;
-  }, [results]);
-
-  const grouped = useMemo(() => {
-    if (conditionFilter === "all") return groupedAll;
-    return groupedAll.filter((group) =>
-      group.runs.some((run) => run.condition === conditionFilter),
-    );
-  }, [conditionFilter, groupedAll]);
-
-  const comparisonSummary = useMemo(() => {
-    if (!results) return null;
-    return {
-      baseline: summarizeCondition(results.runs, baselineCondition),
-      compare: summarizeCondition(results.runs, compareCondition),
-    };
-  }, [baselineCondition, compareCondition, results]);
-
-  const comparisonGroups = useMemo(() => {
-    const list = groupedAll
-      .map((group) => {
-        const baselineRun = group.runs.find(
-          (run) => run.condition === baselineCondition,
-        );
-        const compareRun = group.runs.find(
-          (run) => run.condition === compareCondition,
-        );
-        if (!baselineRun || !compareRun) return null;
-        const baselineScore = getOverallScore(baselineRun);
-        const compareScore = getOverallScore(compareRun);
-        const baselineIssues = getIssueCount(baselineRun);
-        const compareIssues = getIssueCount(compareRun);
-        const scoreDelta =
-          baselineScore !== null && compareScore !== null
-            ? compareScore - baselineScore
-            : null;
-        const issueDelta =
-          baselineIssues !== null && compareIssues !== null
-            ? compareIssues - baselineIssues
-            : null;
-        const statusDelta =
-          getStatusRank(compareRun) - getStatusRank(baselineRun);
-        const improved =
-          (scoreDelta !== null && scoreDelta > 0.01) ||
-          (issueDelta !== null && issueDelta < 0) ||
-          statusDelta < 0;
-
-        return {
-          ...group,
-          baselineRun,
-          compareRun,
-          scoreDelta,
-          issueDelta,
-          statusDelta,
-          improved,
-        };
-      })
-      .filter((group): group is ComparisonGroup => !!group);
-
-    if (!showImprovedOnly) return list;
-    return list.filter((group) => group.improved);
-  }, [baselineCondition, compareCondition, groupedAll, showImprovedOnly]);
-
+  const groupedAll = useMemo(() => buildGroupedRuns(results), [results]);
+  const grouped = useMemo(
+    () => filterGroupedRuns(groupedAll, conditionFilter),
+    [conditionFilter, groupedAll]
+  );
+  const comparisonSummary = useMemo(
+    () => getComparisonSummary(results, baselineCondition, compareCondition),
+    [baselineCondition, compareCondition, results]
+  );
+  const comparisonGroups = useMemo(
+    () =>
+      buildComparisonGroups(
+        groupedAll,
+        baselineCondition,
+        compareCondition,
+        showImprovedOnly
+      ),
+    [baselineCondition, compareCondition, groupedAll, showImprovedOnly]
+  );
   const runCount = results?.runs.length ?? 0;
   const segmentCount = grouped.length;
   const comparisonCount = comparisonGroups.length;
-  const isDraft = status === "draft";
-  const showingCompare = viewMode === "compare" && comparisonEnabled;
-  const comparisonLabels = describeConditionDiff(
-    baselineCondition,
-    compareCondition,
+
+  return {
+    comparisonCount,
+    comparisonGroups,
+    comparisonSummary,
+    grouped,
+    resultsQuery,
+    runCount,
+    segmentCount,
+  };
+};
+
+type ResultsControlsState = ReturnType<typeof useResultsControls>;
+type ResultsDataState = ReturnType<typeof useResultsData>;
+
+const ResultsControls = ({
+  controls,
+  onRefresh,
+}: {
+  controls: ResultsControlsState;
+  onRefresh: () => void;
+}) => {
+  const comparisonEnabled = controls.availableConditions.length > 1;
+  const {
+    setBaselineCondition,
+    setCompareCondition,
+    setConditionFilter,
+    setShowImprovedOnly,
+    setViewMode,
+  } = controls;
+  const handleViewModeClick = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      setViewMode(event.currentTarget.value as "runs" | "compare");
+    },
+    [setViewMode]
+  );
+  const handleSelectChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const { name, value } = event.target;
+      if (name === "baselineCondition") {
+        setBaselineCondition(value as Condition);
+        return;
+      }
+      if (name === "compareCondition") {
+        setCompareCondition(value as Condition);
+        return;
+      }
+      setConditionFilter(value as "all" | Condition);
+    },
+    [setBaselineCondition, setCompareCondition, setConditionFilter]
+  );
+  const handleShowImprovedChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setShowImprovedOnly(event.target.checked);
+    },
+    [setShowImprovedOnly]
   );
 
   return (
-    <div className="rounded-lg border p-4 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Results</h2>
-          <div className="text-sm text-muted-foreground">
-            {isDraft
-              ? "Run the experiment to see results."
-              : showingCompare
-                ? `${comparisonCount} segment pairs`
-                : `${runCount} runs across ${segmentCount} segments`}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          {comparisonEnabled && (
-            <div className="flex rounded-md border p-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setViewMode("runs")}
-                className={`rounded-sm px-2 py-1 font-medium ${viewMode === "runs" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Runs
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("compare")}
-                className={`rounded-sm px-2 py-1 font-medium ${viewMode === "compare" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Compare
-              </button>
-            </div>
-          )}
-          {showingCompare ? (
-            <>
-              <label
-                className="text-muted-foreground"
-                htmlFor="baselineCondition"
-              >
-                Baseline
-              </label>
-              <select
-                id="baselineCondition"
-                value={baselineCondition}
-                onChange={(event) =>
-                  setBaselineCondition(event.target.value as Condition)
-                }
-                className="h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {availableConditions.map((condition) => (
-                  <option key={condition} value={condition}>
-                    {condition}
-                  </option>
-                ))}
-              </select>
-              <label
-                className="text-muted-foreground"
-                htmlFor="compareCondition"
-              >
-                Compare
-              </label>
-              <select
-                id="compareCondition"
-                value={compareCondition}
-                onChange={(event) =>
-                  setCompareCondition(event.target.value as Condition)
-                }
-                className="h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {availableConditions.map((condition) => (
-                  <option key={condition} value={condition}>
-                    {condition}
-                  </option>
-                ))}
-              </select>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={showImprovedOnly}
-                  onChange={(event) =>
-                    setShowImprovedOnly(event.target.checked)
-                  }
-                  className="h-4 w-4"
-                />
-                Improved only
-              </label>
-            </>
-          ) : (
-            <>
-              <label
-                className="text-muted-foreground"
-                htmlFor="conditionFilter"
-              >
-                Condition
-              </label>
-              <select
-                id="conditionFilter"
-                value={conditionFilter}
-                onChange={(event) =>
-                  setConditionFilter(event.target.value as "all" | Condition)
-                }
-                className="h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="all">All</option>
-                {availableConditions.map((condition) => (
-                  <option key={condition} value={condition}>
-                    {condition}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      {comparisonEnabled && (
+        <div className="flex rounded-md border p-0.5 text-xs">
           <button
             type="button"
-            onClick={() => resultsQuery.refetch()}
-            className="h-9 rounded-md border px-3 text-xs hover:bg-muted"
+            value="runs"
+            onClick={handleViewModeClick}
+            className={`rounded-sm px-2 py-1 font-medium ${controls.viewMode === "runs" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
-            Refresh
+            Runs
+          </button>
+          <button
+            type="button"
+            value="compare"
+            onClick={handleViewModeClick}
+            className={`rounded-sm px-2 py-1 font-medium ${controls.viewMode === "compare" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Compare
           </button>
         </div>
-      </div>
+      )}
+      {controls.showingCompare ? (
+        <>
+          <label className="text-muted-foreground" htmlFor="baselineCondition">
+            Baseline
+          </label>
+          <select
+            id="baselineCondition"
+            name="baselineCondition"
+            value={controls.baselineCondition}
+            onChange={handleSelectChange}
+            className="h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {controls.availableConditions.map((condition) => (
+              <option key={condition} value={condition}>
+                {condition}
+              </option>
+            ))}
+          </select>
+          <label className="text-muted-foreground" htmlFor="compareCondition">
+            Compare
+          </label>
+          <select
+            id="compareCondition"
+            name="compareCondition"
+            value={controls.compareCondition}
+            onChange={handleSelectChange}
+            className="h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {controls.availableConditions.map((condition) => (
+              <option key={condition} value={condition}>
+                {condition}
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={controls.showImprovedOnly}
+              onChange={handleShowImprovedChange}
+              className="h-4 w-4"
+            />
+            Improved only
+          </label>
+        </>
+      ) : (
+        <>
+          <label className="text-muted-foreground" htmlFor="conditionFilter">
+            Condition
+          </label>
+          <select
+            id="conditionFilter"
+            name="conditionFilter"
+            value={controls.conditionFilter}
+            onChange={handleSelectChange}
+            className="h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="all">All</option>
+            {controls.availableConditions.map((condition) => (
+              <option key={condition} value={condition}>
+                {condition}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={onRefresh}
+        className="h-9 rounded-md border px-3 text-xs hover:bg-muted"
+      >
+        Refresh
+      </button>
+    </div>
+  );
+};
 
-      {showingCompare && comparisonSummary && (
+const ResultsHeader = ({
+  controls,
+  onRefresh,
+  summaryText,
+}: {
+  controls: ResultsControlsState;
+  onRefresh: () => void;
+  summaryText: string;
+}) => (
+  <div className="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h2 className="text-lg font-semibold">Results</h2>
+      <div className="text-sm text-muted-foreground">{summaryText}</div>
+    </div>
+    <ResultsControls controls={controls} onRefresh={onRefresh} />
+  </div>
+);
+
+const ResultsPanel = ({
+  comparisonLabels,
+  controls,
+  data,
+  status,
+}: {
+  comparisonLabels: string[];
+  controls: ResultsControlsState;
+  data: ResultsDataState;
+  status: Experiment["status"];
+}) => {
+  const handleRefresh = useCallback(() => {
+    data.resultsQuery.refetch();
+  }, [data.resultsQuery]);
+  const isDraft = status === "draft";
+  const summaryText = getResultsSummaryText({
+    comparisonCount: data.comparisonCount,
+    isDraft,
+    runCount: data.runCount,
+    segmentCount: data.segmentCount,
+    showingCompare: controls.showingCompare,
+  });
+  const visibility = getResultsVisibility({
+    comparisonCount: data.comparisonCount,
+    groupedCount: data.grouped.length,
+    hasError: !!data.resultsQuery.error,
+    isDraft,
+    isLoading: data.resultsQuery.isLoading,
+    runCount: data.runCount,
+    showingCompare: controls.showingCompare,
+  });
+
+  return (
+    <div className="rounded-lg border p-4 space-y-4">
+      <ResultsHeader
+        controls={controls}
+        onRefresh={handleRefresh}
+        summaryText={summaryText}
+      />
+
+      {controls.showingCompare && data.comparisonSummary && (
         <ComparisonSummary
-          baseline={comparisonSummary.baseline}
-          compare={comparisonSummary.compare}
+          baseline={data.comparisonSummary.baseline}
+          compare={data.comparisonSummary.compare}
           labels={comparisonLabels}
         />
       )}
 
-      {resultsQuery.isLoading && (
+      {data.resultsQuery.isLoading && (
         <div className="text-sm text-muted-foreground">Loading results...</div>
       )}
-      {resultsQuery.error && (
+      {data.resultsQuery.error && (
         <div className="text-sm text-destructive">
-          {resultsQuery.error instanceof Error
-            ? resultsQuery.error.message
+          {data.resultsQuery.error instanceof Error
+            ? data.resultsQuery.error.message
             : "Failed to load results"}
         </div>
       )}
-      {!resultsQuery.isLoading &&
-        !resultsQuery.error &&
-        !isDraft &&
-        runCount === 0 && (
-          <div className="text-sm text-muted-foreground">No runs yet.</div>
-        )}
-      {!resultsQuery.isLoading &&
-        !resultsQuery.error &&
-        !isDraft &&
-        showingCompare &&
-        comparisonCount === 0 && (
-          <div className="text-sm text-muted-foreground">
-            No paired runs found for the selected conditions.
-          </div>
-        )}
+      {visibility.showNoRuns && (
+        <div className="text-sm text-muted-foreground">No runs yet.</div>
+      )}
+      {visibility.showNoPairs && (
+        <div className="text-sm text-muted-foreground">
+          No paired runs found for the selected conditions.
+        </div>
+      )}
 
-      {!resultsQuery.isLoading &&
-        !resultsQuery.error &&
-        !showingCompare &&
-        grouped.length > 0 && (
-          <div className="space-y-4">
-            {grouped.map((group) => (
-              <div key={group.key} className="rounded-lg border p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <div className="font-medium">
-                    {group.sceneIdLabel}
-                    {group.segmentT !== null ? ` · t=${group.segmentT}` : ""}
+      {visibility.showRuns && (
+        <div className="space-y-4">
+          {data.grouped.map((group) => (
+            <div key={group.key} className="rounded-lg border p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <div className="font-medium">
+                  {group.sceneIdLabel}
+                  {formatSegmentSuffix(group.segmentT)}
+                </div>
+                {group.speaker && (
+                  <div className="text-xs text-muted-foreground">
+                    Speaker: {group.speaker}
                   </div>
-                  {group.speaker && (
-                    <div className="text-xs text-muted-foreground">
-                      Speaker: {group.speaker}
-                    </div>
-                  )}
-                </div>
-                <div className="rounded bg-muted/30 p-3 text-sm whitespace-pre-wrap">
-                  {group.segmentText ?? "Source segment not found"}
-                </div>
-                <div className="grid gap-3 lg:grid-cols-2">
-                  {group.runs
-                    .filter((run) =>
-                      conditionFilter === "all"
-                        ? true
-                        : run.condition === conditionFilter,
-                    )
-                    .map((run) => (
-                      <RunCard key={run.id} run={run} />
-                    ))}
-                </div>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+              <div className="rounded bg-muted/30 p-3 text-sm whitespace-pre-wrap">
+                {group.segmentText ?? "Source segment not found"}
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {group.runs
+                  .filter((run) =>
+                    controls.conditionFilter === "all"
+                      ? true
+                      : run.condition === controls.conditionFilter
+                  )
+                  .map((run) => (
+                    <RunCard key={run.id} run={run} />
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {!resultsQuery.isLoading &&
-        !resultsQuery.error &&
-        showingCompare &&
-        comparisonGroups.length > 0 && (
-          <div className="space-y-4">
-            {comparisonGroups.map((group) => (
-              <ComparisonGroupCard key={group.key} group={group} />
-            ))}
-          </div>
-        )}
+      {visibility.showComparisons && (
+        <div className="space-y-4">
+          {data.comparisonGroups.map((group) => (
+            <ComparisonGroupCard key={group.key} group={group} />
+          ))}
+        </div>
+      )}
     </div>
   );
-}
+};
 
-function ComparisonSummary({
+const ResultsSection = ({
+  experimentId,
+  status,
+  conditions,
+}: ResultsSectionProps) => {
+  const controls = useResultsControls(conditions);
+  const data = useResultsData({
+    baselineCondition: controls.baselineCondition,
+    compareCondition: controls.compareCondition,
+    conditionFilter: controls.conditionFilter,
+    experimentId,
+    showImprovedOnly: controls.showImprovedOnly,
+    status,
+  });
+  const comparisonLabels = useMemo(
+    () =>
+      describeConditionDiff(
+        controls.baselineCondition,
+        controls.compareCondition
+      ),
+    [controls.baselineCondition, controls.compareCondition]
+  );
+
+  return (
+    <ResultsPanel
+      comparisonLabels={comparisonLabels}
+      controls={controls}
+      data={data}
+      status={status}
+    />
+  );
+};
+
+const useStartExperimentMutation = (experimentId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => startExperiment(experimentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["experiment", experimentId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["experiments"] });
+      queryClient.invalidateQueries({
+        queryKey: ["experiment", experimentId, "results"],
+      });
+    },
+  });
+};
+
+const ComparisonSummary = ({
   baseline,
   compare,
   labels,
@@ -741,7 +1068,7 @@ function ComparisonSummary({
   baseline: ConditionSummary;
   compare: ConditionSummary;
   labels: string[];
-}) {
+}) => {
   const overallDelta =
     compare.avgOverall !== null && baseline.avgOverall !== null
       ? compare.avgOverall - baseline.avgOverall
@@ -804,21 +1131,21 @@ function ComparisonSummary({
             label="Avg issues"
             delta={issuesDelta}
             invert
-            formatter={(value) => formatDelta(value, 2)}
+            formatter={formatDeltaTwo}
           />
         </div>
       </div>
     </div>
   );
-}
+};
 
-function SummaryColumn({
+const SummaryColumn = ({
   title,
   summary,
 }: {
   title: string;
   summary: ConditionSummary;
-}) {
+}) => {
   const features = CONDITION_FEATURES[summary.condition];
   return (
     <div className="rounded-md bg-muted/30 p-3 text-xs space-y-2">
@@ -854,18 +1181,16 @@ function SummaryColumn({
       <MetricRow label="Runs" value={summary.totalRuns.toString()} />
     </div>
   );
-}
+};
 
-function MetricRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span>{value}</span>
-    </div>
-  );
-}
+const MetricRow = ({ label, value }: { label: string; value: string }) => (
+  <div className="flex items-center justify-between">
+    <span className="text-muted-foreground">{label}</span>
+    <span>{value}</span>
+  </div>
+);
 
-function DeltaRow({
+const DeltaRow = ({
   label,
   delta,
   invert = false,
@@ -875,28 +1200,21 @@ function DeltaRow({
   delta: number | null;
   invert?: boolean;
   formatter?: (value: number | null) => string;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span
-        className={`rounded px-2 py-0.5 text-xs ${deltaClass(delta, invert)}`}
-      >
-        {formatter(delta)}
-      </span>
-    </div>
-  );
-}
+}) => (
+  <div className="flex items-center justify-between">
+    <span className="text-muted-foreground">{label}</span>
+    <span
+      className={`rounded px-2 py-0.5 text-xs ${deltaClass(delta, invert)}`}
+    >
+      {formatter(delta)}
+    </span>
+  </div>
+);
 
-function ComparisonGroupCard({ group }: { group: ComparisonGroup }) {
+const ComparisonGroupCard = ({ group }: { group: ComparisonGroup }) => {
   const baselineStatus = getStatus(group.baselineRun);
   const compareStatus = getStatus(group.compareRun);
-  const statusClass =
-    group.statusDelta === 0
-      ? "bg-muted text-muted-foreground"
-      : group.statusDelta < 0
-        ? "bg-green-100 text-green-700"
-        : "bg-red-100 text-red-700";
+  const statusClass = getStatusDeltaClass(group.statusDelta);
   const translationChanged =
     group.baselineRun.finalEn &&
     group.compareRun.finalEn &&
@@ -907,7 +1225,7 @@ function ComparisonGroupCard({ group }: { group: ComparisonGroup }) {
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <div className="font-medium">
           {group.sceneIdLabel}
-          {group.segmentT !== null ? ` · t=${group.segmentT}` : ""}
+          {formatSegmentSuffix(group.segmentT)}
         </div>
         {group.speaker && (
           <div className="text-xs text-muted-foreground">
@@ -955,13 +1273,13 @@ function ComparisonGroupCard({ group }: { group: ComparisonGroup }) {
       </div>
     </div>
   );
-}
+};
 
-function ComparisonRunCard({ run, label }: { run: Run; label: string }) {
+const ComparisonRunCard = ({ run, label }: { run: Run; label: string }) => {
   const statusClasses = {
-    ok: "bg-green-100 text-green-700",
-    needs_review: "bg-amber-100 text-amber-700",
     error: "bg-red-100 text-red-700",
+    needs_review: "bg-amber-100 text-amber-700",
+    ok: "bg-green-100 text-green-700",
   };
   const status = getStatus(run);
   const overall = formatScore(getOverallScore(run));
@@ -1005,13 +1323,13 @@ function ComparisonRunCard({ run, label }: { run: Run; label: string }) {
       )}
     </div>
   );
-}
+};
 
-function RunCard({ run }: { run: Run }) {
+const RunCard = ({ run }: { run: Run }) => {
   const statusClasses = {
-    ok: "bg-green-100 text-green-700",
-    needs_review: "bg-amber-100 text-amber-700",
     error: "bg-red-100 text-red-700",
+    needs_review: "bg-amber-100 text-amber-700",
+    ok: "bg-green-100 text-green-700",
   };
   const status = getStatus(run);
   const overall = formatScore(getOverallScore(run));
@@ -1060,4 +1378,8 @@ function RunCard({ run }: { run: Run }) {
       )}
     </div>
   );
-}
+};
+
+export const Route = createFileRoute("/experiments/$experimentId")({
+  component: ExperimentDetailPage,
+});

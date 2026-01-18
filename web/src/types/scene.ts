@@ -1,43 +1,43 @@
 import { z } from "zod";
 
 export const segmentSchema = z.object({
-  t: z.number().int(),
-  type: z.enum(["narration", "dialogue", "sfx"]),
   speaker: z.string().optional(),
+  t: z.number().int(),
   text: z.string(),
+  type: z.enum(["narration", "dialogue", "sfx"]),
 });
 
 export const entitySchema = z.object({
+  aliases: z.array(z.string()).default([]),
+  canonical_name: z.string(),
   id: z.string(),
   type: z.enum(["person", "object", "location", "concept"]),
-  canonical_name: z.string(),
-  aliases: z.array(z.string()).default([]),
 });
 
 export const eventSchema = z.object({
   event_id: z.string(),
-  t: z.number().int(),
-  type: z.string(),
   participants: z.array(z.string()),
   status: z.enum(["done", "pending", "failed"]).default("done"),
+  t: z.number().int(),
+  type: z.string(),
 });
 
 export const factSchema = z.object({
+  confidence: z.number().min(0).max(1),
+  evidence_span: z.array(z.number().int()),
   fact_id: z.string(),
   proposition: z.string(),
   valid_from: z.number().int(),
   valid_to: z.number().int().nullable(),
-  confidence: z.number().min(0).max(1),
-  evidence_span: z.array(z.number().int()),
 });
 
 export const relationSchema = z.object({
   a: z.string(),
   b: z.string(),
+  confidence: z.number().min(0).max(1).optional(),
   type: z.string(),
   valid_from: z.number().int(),
   valid_to: z.number().int().nullable(),
-  confidence: z.number().min(0).max(1).optional(),
 });
 
 export const worldStateSchema = z.object({
@@ -48,7 +48,9 @@ export const worldStateSchema = z.object({
 });
 
 export const observationSchema = z.object({
-  t: z.number().int(),
+  certainty: z.number().min(0).max(1),
+  content: z.string(),
+  evidence_span: z.array(z.number().int()),
   source: z.enum([
     "visual",
     "auditory",
@@ -57,45 +59,43 @@ export const observationSchema = z.object({
     "inference",
     "told",
   ]),
-  content: z.string(),
-  certainty: z.number().min(0).max(1),
-  evidence_span: z.array(z.number().int()),
+  t: z.number().int(),
 });
 
 export const beliefSchema = z.object({
-  t: z.number().int(),
   about: z.string(),
-  value: z.unknown(),
   confidence: z.number().min(0).max(1),
   derived_from: z.array(z.string()),
   higher_order: z.boolean().optional(),
+  t: z.number().int(),
+  value: z.unknown(),
 });
 
 export const goalSchema = z.object({
-  t: z.number().int(),
-  content: z.string(),
-  urgency: z.number().min(0).max(1).optional(),
   confidence: z.number().min(0).max(1),
+  content: z.string(),
+  t: z.number().int(),
+  urgency: z.number().min(0).max(1).optional(),
 });
 
 export const voiceProfileSchema = z.object({
-  register: z.string(),
-  politeness: z.string(),
   catchphrases: z.array(z.string()).optional(),
-  taboo_words: z.array(z.string()).optional(),
+  politeness: z.string(),
+  register: z.string(),
   snark: z.string().optional(),
+  taboo_words: z.array(z.string()).optional(),
 });
 
 export const characterStateSchema = z.object({
-  observations: z.array(observationSchema).default([]),
   beliefs: z.array(beliefSchema).default([]),
   goals: z.array(goalSchema).default([]),
+  observations: z.array(observationSchema).default([]),
   voice_profile: voiceProfileSchema.optional(),
 });
 
 export const glossaryEntrySchema = z.object({
-  ja: z.string(),
   en: z.string(),
+  ja: z.string(),
   strict: z.boolean().optional(),
 });
 
@@ -111,31 +111,31 @@ export const layoutConstraintSchema = z.object({
 });
 
 export const styleGuideSchema = z.object({
-  target: z.string().optional(),
-  keep_vagueness: z.boolean().optional(),
   keep_uncertainty_markers: z.boolean().optional(),
+  keep_vagueness: z.boolean().optional(),
+  target: z.string().optional(),
 });
 
 export const constraintsSchema = z.object({
-  glossary: z.array(glossaryEntrySchema).default([]),
-  tone: z.string().optional(),
-  register: z.string().optional(),
-  format: formatConstraintSchema.optional(),
-  bannedPatterns: z.array(z.string()).default([]),
   allowJapaneseTokens: z.array(z.string()).default([]),
-  style_guide: styleGuideSchema.optional(),
+  bannedPatterns: z.array(z.string()).default([]),
+  format: formatConstraintSchema.optional(),
+  glossary: z.array(glossaryEntrySchema).default([]),
   layout: layoutConstraintSchema.optional(),
-  rating: z.string().optional(),
   publisher_rules: z.array(z.string()).default([]),
+  rating: z.string().optional(),
+  register: z.string().optional(),
+  style_guide: styleGuideSchema.optional(),
+  tone: z.string().optional(),
 });
 
 export const fatalRiskSchema = z.object({
+  description: z.string(),
+  evidence_span: z.array(z.number().int()).optional(),
+  linked_state: z.array(z.string()).default([]),
+  severity: z.enum(["fatal", "major", "minor"]).default("fatal"),
   t: z.number().int(),
   type: z.enum(["KL", "FB", "REF", "IMPL", "LEX", "CONS"]),
-  severity: z.enum(["fatal", "major", "minor"]).default("fatal"),
-  description: z.string(),
-  linked_state: z.array(z.string()).default([]),
-  evidence_span: z.array(z.number().int()).optional(),
 });
 
 export const evalTargetsSchema = z.object({
@@ -143,14 +143,14 @@ export const evalTargetsSchema = z.object({
 });
 
 export const sceneSchema = z.object({
-  scene_id: z.string(),
-  lang_src: z.string().default("ja"),
-  lang_tgt: z.string().default("en"),
-  segments: z.array(segmentSchema),
-  world_state: worldStateSchema,
   character_states: z.record(z.string(), characterStateSchema),
   constraints: constraintsSchema,
   eval_targets: evalTargetsSchema,
+  lang_src: z.string().default("ja"),
+  lang_tgt: z.string().default("en"),
+  scene_id: z.string(),
+  segments: z.array(segmentSchema),
+  world_state: worldStateSchema,
 });
 
 export type Segment = z.infer<typeof segmentSchema>;

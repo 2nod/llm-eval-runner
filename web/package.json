@@ -25,11 +25,11 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@typescript/native-preview": "^7.0.0-dev.20250518.1",
     "@types/bun": "^1.2.4",
+    "@typescript/native-preview": "^7.0.0-dev.20250518.1",
     "drizzle-kit": "^0.30.4",
-    "oxfmt": "^0.7.0",
-    "oxlint": "^0.16.6",
-    "ultracite": "^4.2.8"
+    "oxfmt": "^0.24.0",
+    "oxlint": "^1.39.0",
+    "ultracite": "^7.0.11"
   }
 }

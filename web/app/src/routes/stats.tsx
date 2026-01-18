@@ -1,15 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+
 import { fetchStats } from "@/lib/api";
 
-export const Route = createFileRoute("/stats")({
-  component: StatsPage,
-});
-
-function StatsPage() {
+const StatsPage = () => {
   const { data, isLoading } = useQuery({
-    queryKey: ["stats", "overview"],
     queryFn: fetchStats,
+    queryKey: ["stats", "overview"],
   });
 
   if (isLoading) {
@@ -48,9 +45,9 @@ function StatsPage() {
                     <div
                       className="h-2 rounded bg-primary"
                       style={{
-                        width: `${(count / (stats.totalScenes || 1)) * 100}%`,
-                        minWidth: "20px",
                         maxWidth: "200px",
+                        minWidth: "20px",
+                        width: `${(count / (stats.totalScenes || 1)) * 100}%`,
                       }}
                     />
                     <span className="text-sm text-muted-foreground w-12 text-right">
@@ -78,21 +75,24 @@ function StatsPage() {
       </div>
     </div>
   );
-}
+};
 
-function StatCard({ title, value }: { title: string; value: number }) {
-  return (
-    <div className="rounded-lg border p-4">
-      <div className="text-sm text-muted-foreground">{title}</div>
-      <div className="text-3xl font-bold">{value}</div>
-    </div>
-  );
-}
+const StatCard = ({ title, value }: { title: string; value: number }) => (
+  <div className="rounded-lg border p-4">
+    <div className="text-sm text-muted-foreground">{title}</div>
+    <div className="text-3xl font-bold">{value}</div>
+  </div>
+);
 
-function ActionButton({ label }: { label: string }) {
-  return (
-    <button className="w-full rounded-md border px-4 py-2 text-left text-sm hover:bg-muted transition-colors">
-      {label}
-    </button>
-  );
-}
+const ActionButton = ({ label }: { label: string }) => (
+  <button
+    className="w-full rounded-md border px-4 py-2 text-left text-sm hover:bg-muted transition-colors"
+    type="button"
+  >
+    {label}
+  </button>
+);
+
+export const Route = createFileRoute("/stats")({
+  component: StatsPage,
+});

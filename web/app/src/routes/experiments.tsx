@@ -1,32 +1,28 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
   Link,
   Outlet,
   useMatchRoute,
 } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { fetchExperiments } from "@/lib/api";
-import type { Experiment } from "@/lib/api";
 
-export const Route = createFileRoute("/experiments")({
-  component: ExperimentsPage,
-});
+import { fetchExperiments, type Experiment } from "@/lib/api";
 
-function ExperimentsPage() {
+const ExperimentsPage = () => {
   const matchRoute = useMatchRoute();
   const isChildRoute =
     !!matchRoute({
-      to: "/experiments/$experimentId",
       fuzzy: false,
+      to: "/experiments/$experimentId",
     }) ||
     !!matchRoute({
-      to: "/experiments/new",
       fuzzy: false,
+      to: "/experiments/new",
     });
   const { data, isLoading } = useQuery({
-    queryKey: ["experiments"],
-    queryFn: fetchExperiments,
     enabled: !isChildRoute,
+    queryFn: fetchExperiments,
+    queryKey: ["experiments"],
   });
 
   if (isChildRoute) {
@@ -74,15 +70,15 @@ function ExperimentsPage() {
       )}
     </div>
   );
-}
+};
 
-function ExperimentCard({ experiment }: { experiment: Experiment }) {
+const ExperimentCard = ({ experiment }: { experiment: Experiment }) => {
   const conditions = experiment.conditions ?? [];
   const statusColors = {
-    draft: "bg-muted text-muted-foreground",
-    running: "bg-blue-100 text-blue-700",
     completed: "bg-green-100 text-green-700",
+    draft: "bg-muted text-muted-foreground",
     failed: "bg-red-100 text-red-700",
+    running: "bg-blue-100 text-blue-700",
   };
 
   return (
@@ -123,4 +119,8 @@ function ExperimentCard({ experiment }: { experiment: Experiment }) {
       </div>
     </Link>
   );
-}
+};
+
+export const Route = createFileRoute("/experiments")({
+  component: ExperimentsPage,
+});
