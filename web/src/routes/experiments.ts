@@ -1,9 +1,13 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, schema } from "../db/client";
+import {
+  ExperimentStartError,
+  startExperimentRun,
+} from "../services/experimentRunner";
 
 const experimentsRoutes = new Hono();
 
@@ -195,20 +199,32 @@ experimentsRoutes.post("/:id/start", async (c) => {
   }
 
   const experiment = existing[0];
+  if (!experiment) {
+    return c.json({ error: "Experiment not found" }, 404);
+  }
 
-  if (experiment?.status === "running") {
+  if (experiment.status === "running") {
     return c.json({ error: "Experiment is already running" }, 400);
   }
 
-  await db
-    .update(schema.experiments)
-    .set({ status: "running", updatedAt: new Date().toISOString() })
-    .where(eq(schema.experiments.id, id));
-
-  return c.json({
-    message: "Experiment started",
-    data: { id, status: "running" },
-  });
+  try {
+    const { runId } = await startExperimentRun(experiment);
+    return c.json(
+      {
+        message: "Experiment started",
+        data: { id, status: "running", runId },
+      },
+      202,
+    );
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to start experiment";
+    if (err instanceof ExperimentStartError) {
+      return c.json({ error: message }, err.status);
+    }
+    console.error("Failed to start experiment:", err);
+    return c.json({ error: message }, 500);
+  }
 });
 
 experimentsRoutes.get("/:id/results", async (c) => {
@@ -234,11 +250,28 @@ experimentsRoutes.get("/:id/results", async (c) => {
     .from(schema.aggregatedResults)
     .where(eq(schema.aggregatedResults.experimentId, id));
 
+  const sceneIds = Array.from(
+    new Set(
+      runs
+        .map((run) => run.sceneId)
+        .filter((sceneId): sceneId is string => typeof sceneId === "string"),
+    ),
+  );
+
+  const scenes =
+    sceneIds.length > 0
+      ? await db
+          .select()
+          .from(schema.scenes)
+          .where(inArray(schema.scenes.id, sceneIds))
+      : [];
+
   return c.json({
     data: {
       experiment: existing[0],
       runs,
       aggregated,
+      scenes,
     },
   });
 });
