@@ -6,8 +6,11 @@
   "scripts": {
     "build": "tsgo -p tsconfig.json",
     "start": "cd web && bun run start",
-    "deploy:build": "cd web && bun install && cd app && bun install && bun run build",
-    "deploy:start": "cd web && bun run start",
+    "web:api:start": "cd web && bun run start",
+    "web:api:build": "cd web && bun run build",
+    "web:app:build": "cd web/app && bun install && bun run build",
+    "deploy:build": "bun run web:app:build",
+    "deploy:start": "bun run web:api:start",
     "typecheck": "tsgo --noEmit",
     "lint": "cd web && bun run lint && cd ../web/app && bun run lint",
     "format": "cd web && bun run format && cd ../web/app && bun run format",
