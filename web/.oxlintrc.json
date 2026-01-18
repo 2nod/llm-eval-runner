@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["./node_modules/ultracite/config/oxlint/core/.oxlintrc.json"],
+  "ignorePatterns": ["app", "app/**", "dist", "node_modules", "*.d.ts"],
+  "rules": {
+    "jest/require-hook": "off"
+  }
+}

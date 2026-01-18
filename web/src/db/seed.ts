@@ -1,10 +1,11 @@
+import { sql } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { nanoid } from "nanoid";
-import { sql } from "drizzle-orm";
+
 import { db, schema } from "./client";
 
-type SceneData = {
+interface SceneData {
   scene_id: string;
   lang_src?: string;
   lang_tgt?: string;
@@ -13,122 +14,191 @@ type SceneData = {
   character_states: Record<string, unknown>;
   constraints: Record<string, unknown>;
   eval_targets: Record<string, unknown>;
+}
+
+const shouldSeedDatabase = (dbPath: string) => {
+  const explicit = process.env["SEED_DATABASE"];
+  if (explicit === "1" || explicit === "true") {
+    return true;
+  }
+  return dbPath.startsWith("/tmp/");
 };
 
-function shouldSeedDatabase(dbPath: string) {
-  const explicit = process.env["SEED_DATABASE"];
-  if (explicit === "1" || explicit === "true") return true;
-  return dbPath.startsWith("/tmp/");
-}
-
-function logSeed(message: string) {
+const logSeed = (message: string) => {
   console.log(`[seed] ${message}`);
-}
+};
 
-function logSeedWarning(message: string) {
+const logSeedWarning = (message: string) => {
   console.warn(`[seed] ${message}`);
-}
+};
 
-function resolveSeedPath() {
+const resolveSeedPath = () => {
   const configured = process.env["SEED_SCENES_PATH"];
-  if (configured && configured.trim()) return configured;
+  if (configured && configured.trim()) {
+    return configured;
+  }
   return path.resolve(process.cwd(), "..", "datasets", "synth.scenes.jsonl");
-}
+};
 
-function parseJsonl(content: string): SceneData[] {
+const parseJsonl = (content: string): SceneData[] => {
   const lines = content.split("\n");
   const scenes: SceneData[] = [];
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed) continue;
+    if (!trimmed) {
+      continue;
+    }
     scenes.push(JSON.parse(trimmed) as SceneData);
   }
   return scenes;
-}
+};
 
-export async function seedDatabaseIfEmpty() {
-  const dbPath = process.env["DATABASE_URL"] ?? "./data/eval.db";
-  const shouldSeed = shouldSeedDatabase(dbPath);
-  logSeed(`Seed check: dbPath=${dbPath} shouldSeed=${shouldSeed}`);
-  if (!shouldSeed) {
-    logSeed("Skip: SEED_DATABASE not set and dbPath is not /tmp.");
-    return;
-  }
-
-  const seedSplit = process.env["SEED_SCENES_SPLIT"] ?? "dev";
+const fetchSceneCount = async () => {
   const existingScenes = await db
     .select({ count: sql<number>`count(*)` })
     .from(schema.scenes);
-  let sceneCount = existingScenes[0]?.count ?? 0;
-  if (sceneCount > 0) {
-    logSeed(`Skip: scenes already present (count=${sceneCount}).`);
-  } else {
-    const seedPath = resolveSeedPath();
-    logSeed(`Using seed file: ${seedPath}`);
-    let content: string;
-    try {
-      content = await readFile(seedPath, "utf-8");
-    } catch {
-      logSeedWarning(`Seed file not found: ${seedPath}`);
-      content = "";
-    }
+  return existingScenes[0]?.count ?? 0;
+};
 
-    if (content.trim().length > 0) {
-      const scenes = parseJsonl(content);
-      if (scenes.length === 0) {
-        logSeedWarning("Seed file is empty.");
-      } else {
-        const rows = scenes.map((scene) => ({
-          id: nanoid(),
-          sceneId: scene.scene_id,
-          langSrc: scene.lang_src ?? "ja",
-          langTgt: scene.lang_tgt ?? "en",
-          segments: scene.segments,
-          worldState: scene.world_state,
-          characterStates: scene.character_states,
-          constraints: scene.constraints,
-          evalTargets: scene.eval_targets,
-          split: seedSplit,
-          tags: [],
-        }));
+const readSeedContent = async (seedPath: string) => {
+  try {
+    return await readFile(seedPath, "utf8");
+  } catch {
+    logSeedWarning(`Seed file not found: ${seedPath}`);
+    return "";
+  }
+};
 
-        await db.insert(schema.scenes).values(rows);
-        sceneCount = rows.length;
-        logSeed(
-          `Seeded ${rows.length} scenes from ${seedPath} (split=${seedSplit}).`,
-        );
-      }
-    }
+const buildSceneRows = (scenes: SceneData[], seedSplit: string) =>
+  scenes.map((scene) => ({
+    characterStates: scene.character_states,
+    constraints: scene.constraints,
+    evalTargets: scene.eval_targets,
+    id: nanoid(),
+    langSrc: scene.lang_src ?? "ja",
+    langTgt: scene.lang_tgt ?? "en",
+    sceneId: scene.scene_id,
+    segments: scene.segments,
+    split: seedSplit,
+    tags: [],
+    worldState: scene.world_state,
+  }));
+
+const loadSeedScenes = async (seedPath: string) => {
+  const content = await readSeedContent(seedPath);
+  if (content.trim().length === 0) {
+    return [] as SceneData[];
   }
 
+  const scenes = parseJsonl(content);
+  if (scenes.length === 0) {
+    logSeedWarning("Seed file is empty.");
+  }
+  return scenes;
+};
+
+const insertSeedScenes = async (
+  seedPath: string,
+  seedSplit: string,
+  scenes: SceneData[]
+) => {
+  const rows = buildSceneRows(scenes, seedSplit);
+  await db.insert(schema.scenes).values(rows);
+  logSeed(
+    `Seeded ${rows.length} scenes from ${seedPath} (split=${seedSplit}).`
+  );
+  return rows.length;
+};
+
+const seedScenesIfMissing = async (seedSplit: string) => {
+  const sceneCount = await fetchSceneCount();
+  if (sceneCount > 0) {
+    logSeed(`Skip: scenes already present (count=${sceneCount}).`);
+    return sceneCount;
+  }
+
+  const seedPath = resolveSeedPath();
+  logSeed(`Using seed file: ${seedPath}`);
+  const scenes = await loadSeedScenes(seedPath);
+  if (scenes.length === 0) {
+    return 0;
+  }
+
+  return insertSeedScenes(seedPath, seedSplit, scenes);
+};
+
+const ensureNoExperiments = async () => {
   const existingExperiments = await db
     .select({ count: sql<number>`count(*)` })
     .from(schema.experiments);
   const experimentCount = existingExperiments[0]?.count ?? 0;
   if (experimentCount > 0) {
     logSeed(`Skip: experiments already present (count=${experimentCount}).`);
-    return;
+    return false;
   }
+  return true;
+};
 
+const buildSeedExperiment = (seedSplit: string, sceneCount: number) => {
   const experiment: typeof schema.experiments.$inferInsert = {
-    id: nanoid(),
-    name: "Seeded Preview Experiment",
-    description: "Seeded experiment for preview environments.",
+    conditions: ["A0", "A1", "A2", "A3"],
     config: {
-      name: "Seeded Preview Experiment",
       components: {
         translator: {
-          model: { provider: "openai", name: "gpt-5-mini", temperature: 1 },
+          model: { name: "gpt-5-mini", provider: "openai", temperature: 1 },
         },
       },
+      name: "Seeded Preview Experiment",
     },
-    conditions: ["A0", "A1", "A2", "A3"],
+    description: "Seeded experiment for preview environments.",
+    id: nanoid(),
+    name: "Seeded Preview Experiment",
     status: "draft",
   };
+
   if (sceneCount > 0) {
     experiment.sceneFilter = { split: seedSplit };
   }
 
+  return experiment;
+};
+
+const insertSeedExperiment = async (
+  experiment: typeof schema.experiments.$inferInsert
+) => {
   await db.insert(schema.experiments).values([experiment]);
   logSeed("Seeded 1 experiment.");
-}
+};
+
+const shouldProceedWithSeed = (dbPath: string) => {
+  const shouldSeed = shouldSeedDatabase(dbPath);
+  logSeed(`Seed check: dbPath=${dbPath} shouldSeed=${shouldSeed}`);
+  if (!shouldSeed) {
+    logSeed("Skip: SEED_DATABASE not set and dbPath is not /tmp.");
+    return false;
+  }
+  return true;
+};
+
+const seedExperimentIfMissing = async (
+  seedSplit: string,
+  sceneCount: number
+) => {
+  if (!(await ensureNoExperiments())) {
+    return;
+  }
+
+  const experiment = buildSeedExperiment(seedSplit, sceneCount);
+  await insertSeedExperiment(experiment);
+};
+
+export const seedDatabaseIfEmpty = async () => {
+  const dbPath = process.env["DATABASE_URL"] ?? "./data/eval.db";
+  if (!shouldProceedWithSeed(dbPath)) {
+    return;
+  }
+
+  const seedSplit = process.env["SEED_SCENES_SPLIT"] ?? "dev";
+  const sceneCount = await seedScenesIfMissing(seedSplit);
+  await seedExperimentIfMissing(seedSplit, sceneCount);
+};

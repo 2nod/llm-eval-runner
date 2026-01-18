@@ -7,6 +7,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "check": "bun run lint && bun run format:check && tsgo --noEmit"
@@ -27,10 +28,11 @@
     "@typescript/native-preview": "^7.0.0-dev.20250518.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "oxfmt": "^0.7.0",
-    "oxlint": "^0.16.6",
+    "oxfmt": "^0.24.0",
+    "oxlint": "^1.39.0",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
+    "ultracite": "^7.0.11",
     "vite": "^6.0.11"
   }
 }

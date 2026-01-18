@@ -1,15 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+
 import { fetchStats } from "@/lib/api";
 
-export const Route = createFileRoute("/")({
-  component: HomePage,
-});
-
-function HomePage() {
+const HomePage = () => {
   const { data, isLoading } = useQuery({
-    queryKey: ["stats", "overview"],
     queryFn: fetchStats,
+    queryKey: ["stats", "overview"],
   });
 
   if (isLoading) {
@@ -44,13 +41,15 @@ function HomePage() {
       )}
     </div>
   );
-}
+};
 
-function StatCard({ title, value }: { title: string; value: number }) {
-  return (
-    <div className="rounded-lg border p-4">
-      <div className="text-sm text-muted-foreground">{title}</div>
-      <div className="text-2xl font-bold">{value}</div>
-    </div>
-  );
-}
+const StatCard = ({ title, value }: { title: string; value: number }) => (
+  <div className="rounded-lg border p-4">
+    <div className="text-sm text-muted-foreground">{title}</div>
+    <div className="text-2xl font-bold">{value}</div>
+  </div>
+);
+
+export const Route = createFileRoute("/")({
+  component: HomePage,
+});

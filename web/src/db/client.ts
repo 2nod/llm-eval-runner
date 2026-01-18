@@ -1,7 +1,8 @@
+import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
 import fs from "node:fs";
 import path from "node:path";
-import { drizzle } from "drizzle-orm/bun-sqlite";
-import { Database } from "bun:sqlite";
+
 import * as schema from "./schema";
 
 const dbPath = process.env["DATABASE_URL"] ?? "./data/eval.db";
