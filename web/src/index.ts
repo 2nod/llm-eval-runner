@@ -10,6 +10,7 @@ import { experimentsRoutes } from "./routes/experiments";
 import { runsRoutes } from "./routes/runs";
 import { annotationsRoutes } from "./routes/annotations";
 import { statsRoutes } from "./routes/stats";
+import { seedDatabaseIfEmpty } from "./db/seed";
 
 const app = new Hono();
 const staticRoot = (() => {
@@ -23,6 +24,10 @@ const serveIndex = serveStatic({ root: staticRoot, path: "index.html" });
 app.use("*", logger());
 app.use("*", cors());
 app.use("*", prettyJSON());
+
+await seedDatabaseIfEmpty().catch((err) => {
+  console.error("Failed to seed database:", err);
+});
 
 app.get("/api", (c) => {
   return c.json({
