@@ -43,6 +43,8 @@ The preview URL is shown:
 - If the DB is empty, it auto-seeds with `datasets/synth.scenes.jsonl` when:
   - `DATABASE_URL` starts with `/tmp/`, or
   - `SEED_DATABASE=true` is set.
+- When seeding is enabled and no experiments exist, a sample experiment is
+  inserted for the preview UI.
 
 Preview DBs are ephemeral when stored under `/tmp`.
 

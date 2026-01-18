@@ -55,46 +55,80 @@ export async function seedDatabaseIfEmpty() {
     return;
   }
 
-  const existing = await db
+  const seedSplit = process.env["SEED_SCENES_SPLIT"] ?? "dev";
+  const existingScenes = await db
     .select({ count: sql<number>`count(*)` })
     .from(schema.scenes);
-  const count = existing[0]?.count ?? 0;
-  if (count > 0) {
-    logSeed(`Skip: scenes already present (count=${count}).`);
+  let sceneCount = existingScenes[0]?.count ?? 0;
+  if (sceneCount > 0) {
+    logSeed(`Skip: scenes already present (count=${sceneCount}).`);
+  } else {
+    const seedPath = resolveSeedPath();
+    logSeed(`Using seed file: ${seedPath}`);
+    let content: string;
+    try {
+      content = await readFile(seedPath, "utf-8");
+    } catch (err) {
+      logSeedWarning(`Seed file not found: ${seedPath}`);
+      content = "";
+    }
+
+    if (content.trim().length > 0) {
+      const scenes = parseJsonl(content);
+      if (scenes.length === 0) {
+        logSeedWarning("Seed file is empty.");
+      } else {
+        const rows = scenes.map((scene) => ({
+          id: nanoid(),
+          sceneId: scene.scene_id,
+          langSrc: scene.lang_src ?? "ja",
+          langTgt: scene.lang_tgt ?? "en",
+          segments: scene.segments,
+          worldState: scene.world_state,
+          characterStates: scene.character_states,
+          constraints: scene.constraints,
+          evalTargets: scene.eval_targets,
+          split: seedSplit,
+          tags: [],
+        }));
+
+        await db.insert(schema.scenes).values(rows);
+        sceneCount = rows.length;
+        logSeed(
+          `Seeded ${rows.length} scenes from ${seedPath} (split=${seedSplit}).`,
+        );
+      }
+    }
+  }
+
+  const existingExperiments = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(schema.experiments);
+  const experimentCount = existingExperiments[0]?.count ?? 0;
+  if (experimentCount > 0) {
+    logSeed(`Skip: experiments already present (count=${experimentCount}).`);
     return;
   }
 
-  const seedPath = resolveSeedPath();
-  logSeed(`Using seed file: ${seedPath}`);
-  let content: string;
-  try {
-    content = await readFile(seedPath, "utf-8");
-  } catch (err) {
-    logSeedWarning(`Seed file not found: ${seedPath}`);
-    return;
-  }
-
-  const scenes = parseJsonl(content);
-  if (scenes.length === 0) {
-    logSeedWarning("Seed file is empty.");
-    return;
-  }
-
-  const split = process.env["SEED_SCENES_SPLIT"] ?? "dev";
-  const rows = scenes.map((scene) => ({
+  const experiment: typeof schema.experiments.$inferInsert = {
     id: nanoid(),
-    sceneId: scene.scene_id,
-    langSrc: scene.lang_src ?? "ja",
-    langTgt: scene.lang_tgt ?? "en",
-    segments: scene.segments,
-    worldState: scene.world_state,
-    characterStates: scene.character_states,
-    constraints: scene.constraints,
-    evalTargets: scene.eval_targets,
-    split,
-    tags: [],
-  }));
+    name: "Seeded Preview Experiment",
+    description: "Seeded experiment for preview environments.",
+    config: {
+      name: "Seeded Preview Experiment",
+      components: {
+        translator: {
+          model: { name: "mock" },
+        },
+      },
+    },
+    conditions: ["A0", "A1", "A2", "A3"],
+    status: "draft",
+  };
+  if (sceneCount > 0) {
+    experiment.sceneFilter = { split: seedSplit };
+  }
 
-  await db.insert(schema.scenes).values(rows);
-  logSeed(`Seeded ${rows.length} scenes from ${seedPath} (split=${split}).`);
+  await db.insert(schema.experiments).values([experiment]);
+  logSeed("Seeded 1 experiment.");
 }
