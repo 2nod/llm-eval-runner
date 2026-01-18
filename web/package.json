@@ -1,0 +1,35 @@
+{
+  "name": "llm-eval-web",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push",
+    "import:scenes": "bun run scripts/import-scenes.ts",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "check": "bun run lint && bun run format:check && tsgo --noEmit"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.4.3",
+    "drizzle-orm": "^0.38.4",
+    "hono": "^4.7.4",
+    "nanoid": "^5.1.6",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@typescript/native-preview": "^7.0.0-dev.20250518.1",
+    "@types/bun": "^1.2.4",
+    "drizzle-kit": "^0.30.4",
+    "oxfmt": "^0.7.0",
+    "oxlint": "^0.16.6",
+    "ultracite": "^4.2.8"
+  }
+}

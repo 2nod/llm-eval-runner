@@ -1,0 +1,36 @@
+{
+  "name": "llm-eval-app",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "oxlint",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "check": "bun run lint && bun run format:check && tsgo --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.64.2",
+    "@tanstack/react-router": "^1.95.5",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.474.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.0.1"
+  },
+  "devDependencies": {
+    "@tanstack/router-plugin": "^1.95.5",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "@typescript/native-preview": "^7.0.0-dev.20250518.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "oxfmt": "^0.7.0",
+    "oxlint": "^0.16.6",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "vite": "^6.0.11"
+  }
+}

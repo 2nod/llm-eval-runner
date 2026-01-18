@@ -4,10 +4,12 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit",
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo --noEmit",
+    "lint": "cd web && bun run lint && cd ../web/app && bun run lint",
+    "format": "cd web && bun run format && cd ../web/app && bun run format",
     "clean": "rm -rf dist",
-    "run": "bun run tsx src/cli/run.ts",
+    "dev": "bun run tsx scripts/dev.ts",
     "cli:run": "bun run tsx src/cli/run.ts",
     "cli:aggregate": "bun run tsx src/cli/aggregate.ts",
     "cli:extract": "bun run tsx src/cli/extract-failures.ts",
@@ -22,9 +24,9 @@
   "private": true,
   "devDependencies": {
     "@types/node": "^25.0.7",
+    "@typescript/native-preview": "^7.0.0-dev.20260117.1",
     "promptfoo": "^0.120.14",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "tsx": "^4.21.0"
   },
   "dependencies": {
     "chalk": "^5.6.2",
