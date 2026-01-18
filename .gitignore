@@ -6,6 +6,7 @@ out
 dist
 runs
 *.tgz
+scripts/*.js
 
 # code coverage
 coverage
