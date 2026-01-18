@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "run": "bun run tsx src/cli/run.ts",
+    "dev": "bun run tsx scripts/dev.ts",
     "cli:run": "bun run tsx src/cli/run.ts",
     "cli:aggregate": "bun run tsx src/cli/aggregate.ts",
     "cli:extract": "bun run tsx src/cli/extract-failures.ts",
