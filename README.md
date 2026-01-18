@@ -57,6 +57,11 @@ bun install
 > Bun writes caches outside the repo; if sandboxing blocks it, re-run commands
 > with the provided approval flow.
 
+## Deployment (Railway Preview)
+
+See `docs/railway-preview.md` for the auto-deploy and preview environment
+behavior.
+
 ## Running Experiments
 
 ### Conditions (A0–A3)
