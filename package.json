@@ -4,9 +4,8 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit",
-    "typecheck:tsgo": "tsgo --noEmit",
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo --noEmit",
     "clean": "rm -rf dist",
     "dev": "bun run tsx scripts/dev.ts",
     "cli:run": "bun run tsx src/cli/run.ts",
@@ -25,8 +24,7 @@
     "@types/node": "^25.0.7",
     "@typescript/native-preview": "^7.0.0-dev.20260117.1",
     "promptfoo": "^0.120.14",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "tsx": "^4.21.0"
   },
   "dependencies": {
     "chalk": "^5.6.2",
