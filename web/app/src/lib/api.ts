@@ -189,6 +189,18 @@ export interface Experiment {
   updatedAt: string;
 }
 
+export interface CreateExperimentInput {
+  name: string;
+  description?: string;
+  config: Record<string, unknown>;
+  conditions: Array<"A0" | "A1" | "A2" | "A3">;
+  sceneFilter?: {
+    split?: "train" | "dev" | "test";
+    tags?: string[];
+    sceneIds?: string[];
+  };
+}
+
 export interface StartExperimentResponse {
   message: string;
   data: {
@@ -260,6 +272,15 @@ export async function fetchExperiments(): Promise<
   PaginatedResponse<Experiment>
 > {
   return fetchJson("/experiments");
+}
+
+export async function createExperiment(
+  payload: CreateExperimentInput,
+): Promise<{ data: Experiment }> {
+  return fetchJson("/experiments", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function fetchExperiment(

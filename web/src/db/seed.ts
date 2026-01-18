@@ -68,7 +68,7 @@ export async function seedDatabaseIfEmpty() {
     let content: string;
     try {
       content = await readFile(seedPath, "utf-8");
-    } catch (err) {
+    } catch {
       logSeedWarning(`Seed file not found: ${seedPath}`);
       content = "";
     }

@@ -14,27 +14,42 @@ export const Route = createFileRoute("/experiments")({
 
 function ExperimentsPage() {
   const matchRoute = useMatchRoute();
-  const isDetailRoute = !!matchRoute({
-    to: "/experiments/$experimentId",
-    fuzzy: false,
-  });
+  const isChildRoute =
+    !!matchRoute({
+      to: "/experiments/$experimentId",
+      fuzzy: false,
+    }) ||
+    !!matchRoute({
+      to: "/experiments/new",
+      fuzzy: false,
+    });
   const { data, isLoading } = useQuery({
     queryKey: ["experiments"],
     queryFn: fetchExperiments,
-    enabled: !isDetailRoute,
+    enabled: !isChildRoute,
   });
 
-  if (isDetailRoute) {
+  if (isChildRoute) {
     return <Outlet />;
   }
+
+  const total = data?.pagination.total ?? 0;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Experiments</h1>
-        <button className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90">
+        <div>
+          <h1 className="text-2xl font-bold">Experiments</h1>
+          <div className="text-sm text-muted-foreground">
+            {total} experiments
+          </div>
+        </div>
+        <Link
+          to="/experiments/new"
+          className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+        >
           New Experiment
-        </button>
+        </Link>
       </div>
 
       {isLoading ? (
@@ -45,8 +60,14 @@ function ExperimentsPage() {
             <ExperimentCard key={experiment.id} experiment={experiment} />
           ))}
           {data?.data?.length === 0 && (
-            <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-              No experiments yet. Create one to get started.
+            <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground space-y-3">
+              <div>No experiments yet.</div>
+              <Link
+                to="/experiments/new"
+                className="inline-flex rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+              >
+                Create your first experiment
+              </Link>
             </div>
           )}
         </div>
