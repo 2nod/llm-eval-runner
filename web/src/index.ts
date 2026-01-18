@@ -24,7 +24,7 @@ app.use("*", logger());
 app.use("*", cors());
 app.use("*", prettyJSON());
 
-app.get("/", (c) => {
+app.get("/api", (c) => {
   return c.json({
     name: "llm-eval-runner API",
     version: "1.0.0",
