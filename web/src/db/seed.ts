@@ -118,7 +118,7 @@ export async function seedDatabaseIfEmpty() {
       name: "Seeded Preview Experiment",
       components: {
         translator: {
-          model: { provider: "openai", name: "gpt-5-mini" },
+          model: { provider: "openai", name: "gpt-5-mini", temperature: 1 },
         },
       },
     },
