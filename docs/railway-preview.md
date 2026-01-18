@@ -36,6 +36,7 @@ The preview URL is shown:
 - `SEED_SCENES_PATH`: JSONL path for seed data (default:
   `datasets/synth.scenes.jsonl`).
 - `SEED_SCENES_SPLIT`: split name for seeded scenes (default: `dev`).
+- `OPENAI_API_KEY`: required to run the seeded preview experiment (OpenAI).
 
 ## Database Behavior (Preview)
 

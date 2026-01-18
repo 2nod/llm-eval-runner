@@ -118,7 +118,7 @@ export async function seedDatabaseIfEmpty() {
       name: "Seeded Preview Experiment",
       components: {
         translator: {
-          model: { name: "mock" },
+          model: { provider: "openai", name: "gpt-5-mini" },
         },
       },
     },
