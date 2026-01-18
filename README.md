@@ -44,6 +44,7 @@ runs/             Output JSONL + resolved prompts (gitignored)
 - **Summaries**: `runs/*.csv` (from `src/cli/aggregate.ts`)
 - **Failure buckets**: `runs/*failures*.jsonl` (from `src/cli/extract-failures.ts`)
 - **Prompt artifacts**: `artifacts/dspy/**` (DSPy-exported prompt JSON)
+- **Error type glossary**: `docs/error-types.md`
 - **API keys**: `.env` (e.g., `OPENAI_API_KEY`)
 
 ## Setup
@@ -55,6 +56,11 @@ bun install
 
 > Bun writes caches outside the repo; if sandboxing blocks it, re-run commands
 > with the provided approval flow.
+
+## Deployment (Railway Preview)
+
+See `docs/railway-preview.md` for the auto-deploy and preview environment
+behavior.
 
 ## Running Experiments
 

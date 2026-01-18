@@ -1,4 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  useMatchRoute,
+} from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { fetchExperiments } from "@/lib/api";
 import type { Experiment } from "@/lib/api";
@@ -8,10 +13,20 @@ export const Route = createFileRoute("/experiments")({
 });
 
 function ExperimentsPage() {
+  const matchRoute = useMatchRoute();
+  const isDetailRoute = !!matchRoute({
+    to: "/experiments/$experimentId",
+    fuzzy: false,
+  });
   const { data, isLoading } = useQuery({
     queryKey: ["experiments"],
     queryFn: fetchExperiments,
+    enabled: !isDetailRoute,
   });
+
+  if (isDetailRoute) {
+    return <Outlet />;
+  }
 
   return (
     <div className="space-y-4">
@@ -26,10 +41,10 @@ function ExperimentsPage() {
         <div className="text-muted-foreground">Loading...</div>
       ) : (
         <div className="space-y-2">
-          {data?.data.map((experiment) => (
+          {data?.data?.map((experiment) => (
             <ExperimentCard key={experiment.id} experiment={experiment} />
           ))}
-          {data?.data.length === 0 && (
+          {data?.data?.length === 0 && (
             <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
               No experiments yet. Create one to get started.
             </div>
@@ -41,6 +56,7 @@ function ExperimentsPage() {
 }
 
 function ExperimentCard({ experiment }: { experiment: Experiment }) {
+  const conditions = experiment.conditions ?? [];
   const statusColors = {
     draft: "bg-muted text-muted-foreground",
     running: "bg-blue-100 text-blue-700",
@@ -71,7 +87,7 @@ function ExperimentCard({ experiment }: { experiment: Experiment }) {
       </div>
 
       <div className="mt-2 flex gap-2">
-        {experiment.conditions.map((condition) => (
+        {conditions.map((condition) => (
           <span
             key={condition}
             className="rounded bg-secondary px-2 py-0.5 text-xs"

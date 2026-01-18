@@ -87,13 +87,21 @@ scenesRoutes.get("/", zValidator("query", listQuerySchema), async (c) => {
 });
 
 scenesRoutes.get("/:id", async (c) => {
-  const id = c.req.param("id");
+  const idOrSceneId = c.req.param("id");
 
-  const result = await db
+  let result = await db
     .select()
     .from(schema.scenes)
-    .where(eq(schema.scenes.id, id))
+    .where(eq(schema.scenes.id, idOrSceneId))
     .limit(1);
+
+  if (result.length === 0) {
+    result = await db
+      .select()
+      .from(schema.scenes)
+      .where(eq(schema.scenes.sceneId, idOrSceneId))
+      .limit(1);
+  }
 
   if (result.length === 0) {
     return c.json({ error: "Scene not found" }, 404);

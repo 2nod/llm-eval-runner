@@ -7,6 +7,45 @@ export const Route = createFileRoute("/scenes/$sceneId")({
   component: SceneDetailPage,
 });
 
+type RiskTypeLegendEntry = {
+  code: FatalRisk["type"];
+  label: string;
+  description: string;
+};
+
+const RISK_TYPE_LEGEND: RiskTypeLegendEntry[] = [
+  {
+    code: "KL",
+    label: "Knowledge Leak",
+    description: "話者が知らない事実や世界状態を翻訳で漏らさない。",
+  },
+  {
+    code: "FB",
+    label: "False Belief",
+    description: "話者の誤信を保ち、暗黙的に訂正しない。",
+  },
+  {
+    code: "REF",
+    label: "Reference",
+    description: "代名詞・照応の指示対象を正しく保つ。",
+  },
+  {
+    code: "IMPL",
+    label: "Implicature",
+    description: "含意・ぼかしを保ち、明示化しない。",
+  },
+  {
+    code: "LEX",
+    label: "Lexical",
+    description: "語彙選択・用語選択・用語集違反。",
+  },
+  {
+    code: "CONS",
+    label: "Constraint",
+    description: "形式/スタイル/制約の違反。",
+  },
+];
+
 function SceneDetailPage() {
   const { sceneId } = Route.useParams();
 
@@ -24,6 +63,9 @@ function SceneDetailPage() {
   }
 
   const scene = data.data;
+  const segments = scene.segments ?? [];
+  const fatalRisks = scene.evalTargets?.fatal_risks ?? [];
+  const characterStates = scene.characterStates ?? {};
 
   return (
     <div className="space-y-6">
@@ -46,26 +88,25 @@ function SceneDetailPage() {
         <div className="space-y-4">
           <Section title="Segments">
             <div className="space-y-2">
-              {scene.segments.map((segment) => (
+              {segments.map((segment) => (
                 <SegmentCard
                   key={segment.t}
                   segment={segment}
-                  risks={scene.evalTargets.fatal_risks.filter(
-                    (r) => r.t === segment.t,
-                  )}
+                  risks={fatalRisks.filter((risk) => risk.t === segment.t)}
                 />
               ))}
             </div>
           </Section>
 
           <Section title="Fatal Risks">
-            {scene.evalTargets.fatal_risks.length === 0 ? (
+            <RiskLegend />
+            {fatalRisks.length === 0 ? (
               <div className="text-sm text-muted-foreground">
                 No fatal risks defined
               </div>
             ) : (
               <div className="space-y-2">
-                {scene.evalTargets.fatal_risks.map((risk, i) => (
+                {fatalRisks.map((risk, i) => (
                   <RiskCard key={i} risk={risk} />
                 ))}
               </div>
@@ -80,7 +121,7 @@ function SceneDetailPage() {
 
           <Section title="Character States">
             <div className="space-y-3">
-              {Object.entries(scene.characterStates).map(([name, state]) => (
+              {Object.entries(characterStates).map(([name, state]) => (
                 <CharacterStateCard key={name} name={name} state={state} />
               ))}
             </div>
@@ -90,6 +131,27 @@ function SceneDetailPage() {
             <ConstraintsView constraints={scene.constraints} />
           </Section>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function RiskLegend() {
+  return (
+    <div className="mb-3 rounded border bg-muted/30 p-3 text-xs">
+      <div className="font-medium text-foreground">Type legend</div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {RISK_TYPE_LEGEND.map((entry) => (
+          <div key={entry.code} className="flex items-start gap-2">
+            <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-semibold text-foreground">
+              {entry.code}
+            </span>
+            <div>
+              <div className="text-foreground">{entry.label}</div>
+              <div className="text-muted-foreground">{entry.description}</div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -141,6 +203,8 @@ function SegmentCard({
 }
 
 function RiskCard({ risk }: { risk: FatalRisk }) {
+  const linkedState = risk.linked_state ?? [];
+
   return (
     <div className="rounded border border-destructive/30 bg-destructive/5 p-3">
       <div className="flex items-center gap-2 text-xs">
@@ -151,9 +215,9 @@ function RiskCard({ risk }: { risk: FatalRisk }) {
         </span>
       </div>
       <div className="mt-1 text-sm">{risk.description}</div>
-      {risk.linked_state.length > 0 && (
+      {linkedState.length > 0 && (
         <div className="mt-2 text-xs text-muted-foreground">
-          Linked: {risk.linked_state.join(", ")}
+          Linked: {linkedState.join(", ")}
         </div>
       )}
     </div>
@@ -161,13 +225,17 @@ function RiskCard({ risk }: { risk: FatalRisk }) {
 }
 
 function WorldStateView({ worldState }: { worldState: Scene["worldState"] }) {
+  const facts = worldState?.facts ?? [];
+  const entities = worldState?.entities ?? [];
+  const events = worldState?.events ?? [];
+
   return (
     <div className="space-y-3 text-sm">
-      {worldState.facts.length > 0 && (
+      {facts.length > 0 && (
         <div>
           <div className="font-medium text-muted-foreground">Facts</div>
           <div className="mt-1 space-y-1">
-            {worldState.facts.map((fact) => (
+            {facts.map((fact) => (
               <div key={fact.fact_id} className="rounded bg-muted/50 px-2 py-1">
                 <span className="text-xs text-muted-foreground">
                   [{fact.fact_id}]
@@ -183,11 +251,11 @@ function WorldStateView({ worldState }: { worldState: Scene["worldState"] }) {
         </div>
       )}
 
-      {worldState.entities.length > 0 && (
+      {entities.length > 0 && (
         <div>
           <div className="font-medium text-muted-foreground">Entities</div>
           <div className="mt-1 flex flex-wrap gap-1">
-            {worldState.entities.map((entity) => (
+            {entities.map((entity) => (
               <span
                 key={entity.id}
                 className="rounded bg-muted px-2 py-0.5 text-xs"
@@ -199,11 +267,11 @@ function WorldStateView({ worldState }: { worldState: Scene["worldState"] }) {
         </div>
       )}
 
-      {worldState.events.length > 0 && (
+      {events.length > 0 && (
         <div>
           <div className="font-medium text-muted-foreground">Events</div>
           <div className="mt-1 space-y-1">
-            {worldState.events.map((event) => (
+            {events.map((event) => (
               <div key={event.event_id} className="text-xs">
                 t={event.t}: {event.type} ({event.participants.join(", ")})
               </div>
@@ -222,14 +290,17 @@ function CharacterStateCard({
   name: string;
   state: CharacterState;
 }) {
+  const beliefs = state.beliefs ?? [];
+  const goals = state.goals ?? [];
+
   return (
     <div className="rounded border p-3">
       <div className="font-medium">{name}</div>
       <div className="mt-2 space-y-2 text-sm">
-        {state.beliefs.length > 0 && (
+        {beliefs.length > 0 && (
           <div>
             <span className="text-xs text-muted-foreground">Beliefs:</span>
-            {state.beliefs.map((b, i) => (
+            {beliefs.map((b, i) => (
               <div key={i} className="text-xs">
                 t={b.t}: {b.about} = {JSON.stringify(b.value)} (
                 {(b.confidence * 100).toFixed(0)}%)
@@ -237,10 +308,10 @@ function CharacterStateCard({
             ))}
           </div>
         )}
-        {state.goals.length > 0 && (
+        {goals.length > 0 && (
           <div>
             <span className="text-xs text-muted-foreground">Goals:</span>
-            {state.goals.map((g, i) => (
+            {goals.map((g, i) => (
               <div key={i} className="text-xs">
                 t={g.t}: {g.content}
               </div>
@@ -263,13 +334,15 @@ function ConstraintsView({
 }: {
   constraints: Scene["constraints"];
 }) {
+  const glossary = constraints?.glossary ?? [];
+
   return (
     <div className="space-y-2 text-sm">
-      {constraints.glossary.length > 0 && (
+      {glossary.length > 0 && (
         <div>
           <div className="font-medium text-muted-foreground">Glossary</div>
           <div className="mt-1 space-y-1">
-            {constraints.glossary.map((entry, i) => (
+            {glossary.map((entry, i) => (
               <div key={i} className="text-xs">
                 {entry.ja} → {entry.en}
                 {entry.strict && (
@@ -280,13 +353,13 @@ function ConstraintsView({
           </div>
         </div>
       )}
-      {constraints.tone && (
+      {constraints?.tone && (
         <div className="text-xs">
           <span className="text-muted-foreground">Tone:</span>{" "}
           {constraints.tone}
         </div>
       )}
-      {constraints.register && (
+      {constraints?.register && (
         <div className="text-xs">
           <span className="text-muted-foreground">Register:</span>{" "}
           {constraints.register}

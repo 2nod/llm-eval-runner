@@ -189,6 +189,41 @@ export interface Experiment {
   updatedAt: string;
 }
 
+export interface StartExperimentResponse {
+  message: string;
+  data: {
+    id: string;
+    status: Experiment["status"];
+    runId: string;
+  };
+}
+
+export interface Run {
+  id: string;
+  experimentId?: string | null;
+  runId: string;
+  sceneId?: string | null;
+  condition: "A0" | "A1" | "A2" | "A3";
+  segmentT?: number | null;
+  draftEn?: string | null;
+  finalEn?: string | null;
+  issues?: unknown[] | null;
+  hardChecks?: unknown[] | null;
+  scores?: Record<string, unknown> | null;
+  usage?: Record<string, unknown> | null;
+  timingMs?: Record<string, unknown> | null;
+  state?: Record<string, unknown> | null;
+  status?: "ok" | "needs_review" | "error" | null;
+  createdAt?: string | null;
+}
+
+export interface ExperimentResults {
+  experiment: Experiment;
+  runs: Run[];
+  aggregated: Array<Record<string, unknown>>;
+  scenes?: Scene[];
+}
+
 export interface StatsOverview {
   totalScenes: number;
   totalExperiments: number;
@@ -231,6 +266,18 @@ export async function fetchExperiment(
   id: string,
 ): Promise<{ data: Experiment }> {
   return fetchJson(`/experiments/${id}`);
+}
+
+export async function fetchExperimentResults(
+  id: string,
+): Promise<{ data: ExperimentResults }> {
+  return fetchJson(`/experiments/${id}/results`);
+}
+
+export async function startExperiment(
+  id: string,
+): Promise<StartExperimentResponse> {
+  return fetchJson(`/experiments/${id}/start`, { method: "POST" });
 }
 
 export async function fetchStats(): Promise<{ data: StatsOverview }> {
