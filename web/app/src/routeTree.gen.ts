@@ -8,87 +8,87 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root"
-import { Route as StatsRouteImport } from "./routes/stats"
-import { Route as ScenesRouteImport } from "./routes/scenes"
-import { Route as ExperimentsRouteImport } from "./routes/experiments"
-import { Route as IndexRouteImport } from "./routes/index"
-import { Route as ScenesSceneIdRouteImport } from "./routes/scenes.$sceneId"
-import { Route as ExperimentsExperimentIdRouteImport } from "./routes/experiments.$experimentId"
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as StatsRouteImport } from "./routes/stats";
+import { Route as ScenesRouteImport } from "./routes/scenes";
+import { Route as ExperimentsRouteImport } from "./routes/experiments";
+import { Route as IndexRouteImport } from "./routes/index";
+import { Route as ScenesSceneIdRouteImport } from "./routes/scenes.$sceneId";
+import { Route as ExperimentsExperimentIdRouteImport } from "./routes/experiments.$experimentId";
 
 const StatsRoute = StatsRouteImport.update({
   id: "/stats",
   path: "/stats",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const ScenesRoute = ScenesRouteImport.update({
   id: "/scenes",
   path: "/scenes",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const ExperimentsRoute = ExperimentsRouteImport.update({
   id: "/experiments",
   path: "/experiments",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const IndexRoute = IndexRouteImport.update({
   id: "/",
   path: "/",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const ScenesSceneIdRoute = ScenesSceneIdRouteImport.update({
   id: "/$sceneId",
   path: "/$sceneId",
   getParentRoute: () => ScenesRoute,
-} as any)
+} as any);
 const ExperimentsExperimentIdRoute = ExperimentsExperimentIdRouteImport.update({
   id: "/$experimentId",
   path: "/$experimentId",
   getParentRoute: () => ExperimentsRoute,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute
-  "/experiments": typeof ExperimentsRouteWithChildren
-  "/scenes": typeof ScenesRouteWithChildren
-  "/stats": typeof StatsRoute
-  "/experiments/$experimentId": typeof ExperimentsExperimentIdRoute
-  "/scenes/$sceneId": typeof ScenesSceneIdRoute
+  "/": typeof IndexRoute;
+  "/experiments": typeof ExperimentsRouteWithChildren;
+  "/scenes": typeof ScenesRouteWithChildren;
+  "/stats": typeof StatsRoute;
+  "/experiments/$experimentId": typeof ExperimentsExperimentIdRoute;
+  "/scenes/$sceneId": typeof ScenesSceneIdRoute;
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute
-  "/experiments": typeof ExperimentsRouteWithChildren
-  "/scenes": typeof ScenesRouteWithChildren
-  "/stats": typeof StatsRoute
-  "/experiments/$experimentId": typeof ExperimentsExperimentIdRoute
-  "/scenes/$sceneId": typeof ScenesSceneIdRoute
+  "/": typeof IndexRoute;
+  "/experiments": typeof ExperimentsRouteWithChildren;
+  "/scenes": typeof ScenesRouteWithChildren;
+  "/stats": typeof StatsRoute;
+  "/experiments/$experimentId": typeof ExperimentsExperimentIdRoute;
+  "/scenes/$sceneId": typeof ScenesSceneIdRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  "/": typeof IndexRoute
-  "/experiments": typeof ExperimentsRouteWithChildren
-  "/scenes": typeof ScenesRouteWithChildren
-  "/stats": typeof StatsRoute
-  "/experiments/$experimentId": typeof ExperimentsExperimentIdRoute
-  "/scenes/$sceneId": typeof ScenesSceneIdRoute
+  __root__: typeof rootRouteImport;
+  "/": typeof IndexRoute;
+  "/experiments": typeof ExperimentsRouteWithChildren;
+  "/scenes": typeof ScenesRouteWithChildren;
+  "/stats": typeof StatsRoute;
+  "/experiments/$experimentId": typeof ExperimentsExperimentIdRoute;
+  "/scenes/$sceneId": typeof ScenesSceneIdRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
+  fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
     | "/experiments"
     | "/scenes"
     | "/stats"
     | "/experiments/$experimentId"
-    | "/scenes/$sceneId"
-  fileRoutesByTo: FileRoutesByTo
+    | "/scenes/$sceneId";
+  fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
     | "/experiments"
     | "/scenes"
     | "/stats"
     | "/experiments/$experimentId"
-    | "/scenes/$sceneId"
+    | "/scenes/$sceneId";
   id:
     | "__root__"
     | "/"
@@ -96,92 +96,92 @@ export interface FileRouteTypes {
     | "/scenes"
     | "/stats"
     | "/experiments/$experimentId"
-    | "/scenes/$sceneId"
-  fileRoutesById: FileRoutesById
+    | "/scenes/$sceneId";
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  ExperimentsRoute: typeof ExperimentsRouteWithChildren
-  ScenesRoute: typeof ScenesRouteWithChildren
-  StatsRoute: typeof StatsRoute
+  IndexRoute: typeof IndexRoute;
+  ExperimentsRoute: typeof ExperimentsRouteWithChildren;
+  ScenesRoute: typeof ScenesRouteWithChildren;
+  StatsRoute: typeof StatsRoute;
 }
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
     "/stats": {
-      id: "/stats"
-      path: "/stats"
-      fullPath: "/stats"
-      preLoaderRoute: typeof StatsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: "/stats";
+      path: "/stats";
+      fullPath: "/stats";
+      preLoaderRoute: typeof StatsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/scenes": {
-      id: "/scenes"
-      path: "/scenes"
-      fullPath: "/scenes"
-      preLoaderRoute: typeof ScenesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: "/scenes";
+      path: "/scenes";
+      fullPath: "/scenes";
+      preLoaderRoute: typeof ScenesRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/experiments": {
-      id: "/experiments"
-      path: "/experiments"
-      fullPath: "/experiments"
-      preLoaderRoute: typeof ExperimentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: "/experiments";
+      path: "/experiments";
+      fullPath: "/experiments";
+      preLoaderRoute: typeof ExperimentsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/": {
-      id: "/"
-      path: "/"
-      fullPath: "/"
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/scenes/$sceneId": {
-      id: "/scenes/$sceneId"
-      path: "/$sceneId"
-      fullPath: "/scenes/$sceneId"
-      preLoaderRoute: typeof ScenesSceneIdRouteImport
-      parentRoute: typeof ScenesRoute
-    }
+      id: "/scenes/$sceneId";
+      path: "/$sceneId";
+      fullPath: "/scenes/$sceneId";
+      preLoaderRoute: typeof ScenesSceneIdRouteImport;
+      parentRoute: typeof ScenesRoute;
+    };
     "/experiments/$experimentId": {
-      id: "/experiments/$experimentId"
-      path: "/$experimentId"
-      fullPath: "/experiments/$experimentId"
-      preLoaderRoute: typeof ExperimentsExperimentIdRouteImport
-      parentRoute: typeof ExperimentsRoute
-    }
+      id: "/experiments/$experimentId";
+      path: "/$experimentId";
+      fullPath: "/experiments/$experimentId";
+      preLoaderRoute: typeof ExperimentsExperimentIdRouteImport;
+      parentRoute: typeof ExperimentsRoute;
+    };
   }
 }
 
 interface ExperimentsRouteChildren {
-  ExperimentsExperimentIdRoute: typeof ExperimentsExperimentIdRoute
+  ExperimentsExperimentIdRoute: typeof ExperimentsExperimentIdRoute;
 }
 
 const ExperimentsRouteChildren: ExperimentsRouteChildren = {
   ExperimentsExperimentIdRoute: ExperimentsExperimentIdRoute,
-}
+};
 
 const ExperimentsRouteWithChildren = ExperimentsRoute._addFileChildren(
   ExperimentsRouteChildren,
-)
+);
 
 interface ScenesRouteChildren {
-  ScenesSceneIdRoute: typeof ScenesSceneIdRoute
+  ScenesSceneIdRoute: typeof ScenesSceneIdRoute;
 }
 
 const ScenesRouteChildren: ScenesRouteChildren = {
   ScenesSceneIdRoute: ScenesSceneIdRoute,
-}
+};
 
 const ScenesRouteWithChildren =
-  ScenesRoute._addFileChildren(ScenesRouteChildren)
+  ScenesRoute._addFileChildren(ScenesRouteChildren);
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ExperimentsRoute: ExperimentsRouteWithChildren,
   ScenesRoute: ScenesRouteWithChildren,
   StatsRoute: StatsRoute,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();
