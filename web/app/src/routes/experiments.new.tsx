@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { createExperiment } from "@/lib/api";
+import { createExperiment, fetchScenes } from "@/lib/api";
 import type { CreateExperimentInput } from "@/lib/api";
 
 export const Route = createFileRoute("/experiments/new")({
@@ -15,6 +15,7 @@ const DEFAULT_MODEL_NAME = "gpt-5-mini";
 
 type Condition = (typeof CONDITION_OPTIONS)[number];
 type ModelProvider = (typeof MODEL_PROVIDERS)[number];
+type SceneSplit = "train" | "dev" | "test" | "";
 
 function buildExperimentConfig({
   name,
@@ -60,10 +61,14 @@ function NewExperimentPage() {
   const [selectedConditions, setSelectedConditions] = useState<Condition[]>(
     () => [...CONDITION_OPTIONS],
   );
+  const [sceneSearch, setSceneSearch] = useState("");
+  const [sceneSplit, setSceneSplit] = useState<SceneSplit>("");
+  const [selectedSceneIds, setSelectedSceneIds] = useState<string[]>([]);
 
   const trimmedName = name.trim();
   const trimmedDescription = description.trim();
   const trimmedModelName = modelName.trim();
+  const trimmedSceneSearch = sceneSearch.trim();
   const temperatureValue = Number.parseFloat(temperature);
   const hasValidTemperature =
     Number.isFinite(temperatureValue) &&
@@ -77,6 +82,25 @@ function NewExperimentPage() {
     trimmedModelName.length > 0 &&
     orderedConditions.length > 0 &&
     hasValidTemperature;
+  const selectedSceneCount = selectedSceneIds.length;
+  const previewSceneIds = selectedSceneIds.slice(0, 3);
+  const remainingSceneCount = selectedSceneCount - previewSceneIds.length;
+  const splitLabel = sceneSplit || "All";
+
+  const scenesQuery = useQuery({
+    queryKey: [
+      "scenes",
+      { split: sceneSplit || "all", search: trimmedSceneSearch },
+    ],
+    queryFn: () =>
+      fetchScenes({
+        split: sceneSplit || undefined,
+        search: trimmedSceneSearch || undefined,
+        limit: 50,
+      }),
+  });
+  const scenes = scenesQuery.data?.data ?? [];
+  const scenesTotal = scenesQuery.data?.pagination.total ?? 0;
 
   const createMutation = useMutation({
     mutationFn: createExperiment,
@@ -93,6 +117,13 @@ function NewExperimentPage() {
     event.preventDefault();
     if (!canSubmit) return;
 
+    const sceneFilter = {
+      split: sceneSplit || undefined,
+      sceneIds: selectedSceneIds.length > 0 ? selectedSceneIds : undefined,
+    };
+    const hasSceneFilter =
+      !!sceneFilter.split || (sceneFilter.sceneIds?.length ?? 0) > 0;
+
     const payload: CreateExperimentInput = {
       name: trimmedName,
       description: trimmedDescription || undefined,
@@ -104,6 +135,7 @@ function NewExperimentPage() {
         temperature: temperatureValue,
       }),
       conditions: orderedConditions,
+      sceneFilter: hasSceneFilter ? sceneFilter : undefined,
     };
 
     createMutation.mutate(payload);
@@ -114,6 +146,14 @@ function NewExperimentPage() {
       prev.includes(condition)
         ? prev.filter((value) => value !== condition)
         : [...prev, condition],
+    );
+  };
+
+  const toggleScene = (sceneId: string) => {
+    setSelectedSceneIds((prev) =>
+      prev.includes(sceneId)
+        ? prev.filter((value) => value !== sceneId)
+        : [...prev, sceneId],
     );
   };
 
@@ -253,6 +293,89 @@ function NewExperimentPage() {
             )}
           </div>
 
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">Scenes</div>
+              {selectedSceneCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedSceneIds([])}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Clear selection
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="text"
+                value={sceneSearch}
+                onChange={(event) => setSceneSearch(event.target.value)}
+                placeholder="Search by scene id..."
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:w-64"
+              />
+              <select
+                value={sceneSplit}
+                onChange={(event) =>
+                  setSceneSplit(event.target.value as SceneSplit)
+                }
+                className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">All splits</option>
+                <option value="train">Train</option>
+                <option value="dev">Dev</option>
+                <option value="test">Test</option>
+              </select>
+            </div>
+            <div className="max-h-56 overflow-auto rounded-md border">
+              {scenesQuery.isLoading ? (
+                <div className="p-3 text-sm text-muted-foreground">
+                  Loading scenes...
+                </div>
+              ) : scenesQuery.isError ? (
+                <div className="p-3 text-sm text-destructive">
+                  Failed to load scenes.
+                </div>
+              ) : scenes.length === 0 ? (
+                <div className="p-3 text-sm text-muted-foreground">
+                  No scenes found.
+                </div>
+              ) : (
+                <ul className="divide-y">
+                  {scenes.map((scene) => (
+                    <li
+                      key={scene.sceneId}
+                      className="flex items-center gap-2 px-3 py-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSceneIds.includes(scene.sceneId)}
+                        onChange={() => toggleScene(scene.sceneId)}
+                        className="h-4 w-4"
+                      />
+                      <span className="font-medium">{scene.sceneId}</span>
+                      {scene.split && (
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {scene.split}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {selectedSceneCount > 0
+                ? `${selectedSceneCount} scenes selected.`
+                : "No scenes selected. The experiment will use all scenes."}
+            </div>
+            {scenesTotal > scenes.length && (
+              <div className="text-xs text-muted-foreground">
+                Showing {scenes.length} of {scenesTotal} scenes.
+              </div>
+            )}
+          </div>
+
           {createMutation.error && (
             <div className="text-sm text-destructive">
               {createMutation.error instanceof Error
@@ -312,6 +435,26 @@ function NewExperimentPage() {
                     ? orderedConditions.join(", ")
                     : "Not set"}
                 </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Scenes</span>
+                <span>
+                  {selectedSceneCount > 0
+                    ? `${selectedSceneCount} selected`
+                    : "All scenes"}
+                </span>
+              </div>
+              {selectedSceneCount > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  {previewSceneIds.join(", ")}
+                  {remainingSceneCount > 0
+                    ? ` +${remainingSceneCount} more`
+                    : ""}
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Split filter</span>
+                <span>{splitLabel}</span>
               </div>
             </div>
           </div>
