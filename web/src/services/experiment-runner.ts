@@ -373,10 +373,23 @@ const runExperimentInBackground = async (
   conditions: Condition[],
   runId: string
 ) => {
+  let status: "completed" | "failed" = "completed";
+
   try {
     await runExperiment(experiment, config, conditions, runId);
   } catch (error) {
+    status = "failed";
     console.error("Experiment run failed:", error);
+  }
+
+  try {
+    if (status === "failed") {
+      await markExperimentFailed(experiment.id);
+    } else {
+      await markExperimentCompleted(experiment.id);
+    }
+  } catch (error) {
+    console.error(`Failed to mark experiment ${status}:`, error);
   }
 };
 
@@ -398,11 +411,26 @@ const buildRunId = (experimentId: string) =>
     .toISOString()
     .replaceAll(/[:.]/g, "")}-${nanoid(6)}`;
 
-const markExperimentRunning = async (experimentId: string) => {
+const updateExperimentStatus = async (
+  experimentId: string,
+  status: "running" | "completed" | "failed"
+) => {
   await db
     .update(schema.experiments)
-    .set({ status: "running", updatedAt: new Date().toISOString() })
+    .set({ status, updatedAt: new Date().toISOString() })
     .where(eq(schema.experiments.id, experimentId));
+};
+
+const markExperimentRunning = async (experimentId: string) => {
+  await updateExperimentStatus(experimentId, "running");
+};
+
+const markExperimentCompleted = async (experimentId: string) => {
+  await updateExperimentStatus(experimentId, "completed");
+};
+
+const markExperimentFailed = async (experimentId: string) => {
+  await updateExperimentStatus(experimentId, "failed");
 };
 
 export const startExperimentRun = async (
