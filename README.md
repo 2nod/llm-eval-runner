@@ -44,6 +44,7 @@ runs/             Output JSONL + resolved prompts (gitignored)
 - **Summaries**: `runs/*.csv` (from `src/cli/aggregate.ts`)
 - **Failure buckets**: `runs/*failures*.jsonl` (from `src/cli/extract-failures.ts`)
 - **Prompt artifacts**: `artifacts/dspy/**` (DSPy-exported prompt JSON)
+- **Error type glossary**: `docs/error-types.md`
 - **API keys**: `.env` (e.g., `OPENAI_API_KEY`)
 
 ## Setup

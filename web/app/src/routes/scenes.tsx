@@ -1,4 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  useMatchRoute,
+} from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { fetchScenes } from "@/lib/api";
@@ -9,6 +14,8 @@ export const Route = createFileRoute("/scenes")({
 });
 
 function ScenesPage() {
+  const matchRoute = useMatchRoute();
+  const isDetailRoute = !!matchRoute({ to: "/scenes/$sceneId", fuzzy: false });
   const [split, setSplit] = useState<string>("");
   const [search, setSearch] = useState("");
 
@@ -16,7 +23,12 @@ function ScenesPage() {
     queryKey: ["scenes", { split, search }],
     queryFn: () =>
       fetchScenes({ split: split || undefined, search: search || undefined }),
+    enabled: !isDetailRoute,
   });
+
+  if (isDetailRoute) {
+    return <Outlet />;
+  }
 
   return (
     <div className="space-y-4">
@@ -51,10 +63,10 @@ function ScenesPage() {
         <div className="text-muted-foreground">Loading...</div>
       ) : (
         <div className="space-y-2">
-          {data?.data.map((scene) => (
+          {data?.data?.map((scene) => (
             <SceneCard key={scene.id} scene={scene} />
           ))}
-          {data?.data.length === 0 && (
+          {data?.data?.length === 0 && (
             <div className="text-muted-foreground">No scenes found</div>
           )}
         </div>
@@ -64,7 +76,9 @@ function ScenesPage() {
 }
 
 function SceneCard({ scene }: { scene: Scene }) {
-  const fatalRisks = scene.evalTargets.fatal_risks;
+  const segments = scene.segments ?? [];
+  const characterStates = scene.characterStates ?? {};
+  const fatalRisks = scene.evalTargets?.fatal_risks ?? [];
   const riskCounts = fatalRisks.reduce(
     (acc, risk) => {
       acc[risk.type] = (acc[risk.type] ?? 0) + 1;
@@ -76,16 +90,16 @@ function SceneCard({ scene }: { scene: Scene }) {
   return (
     <Link
       to="/scenes/$sceneId"
-      params={{ sceneId: scene.id }}
+      params={{ sceneId: scene.sceneId }}
       className="block rounded-lg border p-4 hover:bg-muted/50 transition-colors"
     >
       <div className="flex items-start justify-between">
         <div>
           <div className="font-medium">{scene.sceneId}</div>
           <div className="text-sm text-muted-foreground">
-            {scene.segments.length} segments
+            {segments.length} segments
             {" · "}
-            {Object.keys(scene.characterStates).length} characters
+            {Object.keys(characterStates).length} characters
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -103,7 +117,7 @@ function SceneCard({ scene }: { scene: Scene }) {
       </div>
 
       <div className="mt-2 text-sm text-muted-foreground line-clamp-2">
-        {scene.segments
+        {segments
           .slice(0, 2)
           .map((s) => s.text)
           .join(" · ")}
