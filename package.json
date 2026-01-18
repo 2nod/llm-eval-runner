@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsgo -p tsconfig.json",
+    "start": "cd web && bun run start",
     "typecheck": "tsgo --noEmit",
     "lint": "cd web && bun run lint && cd ../web/app && bun run lint",
     "format": "cd web && bun run format && cd ../web/app && bun run format",
