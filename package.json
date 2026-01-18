@@ -20,6 +20,7 @@
     "format": "cd web && bun run format && cd ../web/app && bun run format",
     "format:check": "cd web && bun run format:check && cd ../web/app && bun run format:check",
     "check": "bun run lint && bun run format:check && bun run typecheck",
+    "ci": "bun run build && bun run lint && bun run format:check && ( [ -z \"$OPENAI_API_KEY\" ] || bun run promptfoo:eval )",
     "clean": "rm -rf dist",
     "dev": "bun run tsx scripts/dev.ts",
     "cli:run": "bun run tsx src/cli/run.ts",
