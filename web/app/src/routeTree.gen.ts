@@ -14,6 +14,7 @@ import { Route as ScenesRouteImport } from "./routes/scenes";
 import { Route as ExperimentsRouteImport } from "./routes/experiments";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as ScenesSceneIdRouteImport } from "./routes/scenes.$sceneId";
+import { Route as ExperimentsNewRouteImport } from "./routes/experiments.new";
 import { Route as ExperimentsExperimentIdRouteImport } from "./routes/experiments.$experimentId";
 
 const StatsRoute = StatsRouteImport.update({
@@ -41,6 +42,11 @@ const ScenesSceneIdRoute = ScenesSceneIdRouteImport.update({
   path: "/$sceneId",
   getParentRoute: () => ScenesRoute,
 } as any);
+const ExperimentsNewRoute = ExperimentsNewRouteImport.update({
+  id: "/new",
+  path: "/new",
+  getParentRoute: () => ExperimentsRoute,
+} as any);
 const ExperimentsExperimentIdRoute = ExperimentsExperimentIdRouteImport.update({
   id: "/$experimentId",
   path: "/$experimentId",
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   "/scenes": typeof ScenesRouteWithChildren;
   "/stats": typeof StatsRoute;
   "/experiments/$experimentId": typeof ExperimentsExperimentIdRoute;
+  "/experiments/new": typeof ExperimentsNewRoute;
   "/scenes/$sceneId": typeof ScenesSceneIdRoute;
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   "/scenes": typeof ScenesRouteWithChildren;
   "/stats": typeof StatsRoute;
   "/experiments/$experimentId": typeof ExperimentsExperimentIdRoute;
+  "/experiments/new": typeof ExperimentsNewRoute;
   "/scenes/$sceneId": typeof ScenesSceneIdRoute;
 }
 export interface FileRoutesById {
@@ -70,6 +78,7 @@ export interface FileRoutesById {
   "/scenes": typeof ScenesRouteWithChildren;
   "/stats": typeof StatsRoute;
   "/experiments/$experimentId": typeof ExperimentsExperimentIdRoute;
+  "/experiments/new": typeof ExperimentsNewRoute;
   "/scenes/$sceneId": typeof ScenesSceneIdRoute;
 }
 export interface FileRouteTypes {
@@ -80,6 +89,7 @@ export interface FileRouteTypes {
     | "/scenes"
     | "/stats"
     | "/experiments/$experimentId"
+    | "/experiments/new"
     | "/scenes/$sceneId";
   fileRoutesByTo: FileRoutesByTo;
   to:
@@ -88,6 +98,7 @@ export interface FileRouteTypes {
     | "/scenes"
     | "/stats"
     | "/experiments/$experimentId"
+    | "/experiments/new"
     | "/scenes/$sceneId";
   id:
     | "__root__"
@@ -96,6 +107,7 @@ export interface FileRouteTypes {
     | "/scenes"
     | "/stats"
     | "/experiments/$experimentId"
+    | "/experiments/new"
     | "/scenes/$sceneId";
   fileRoutesById: FileRoutesById;
 }
@@ -143,6 +155,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ScenesSceneIdRouteImport;
       parentRoute: typeof ScenesRoute;
     };
+    "/experiments/new": {
+      id: "/experiments/new";
+      path: "/new";
+      fullPath: "/experiments/new";
+      preLoaderRoute: typeof ExperimentsNewRouteImport;
+      parentRoute: typeof ExperimentsRoute;
+    };
     "/experiments/$experimentId": {
       id: "/experiments/$experimentId";
       path: "/$experimentId";
@@ -155,10 +174,12 @@ declare module "@tanstack/react-router" {
 
 interface ExperimentsRouteChildren {
   ExperimentsExperimentIdRoute: typeof ExperimentsExperimentIdRoute;
+  ExperimentsNewRoute: typeof ExperimentsNewRoute;
 }
 
 const ExperimentsRouteChildren: ExperimentsRouteChildren = {
   ExperimentsExperimentIdRoute: ExperimentsExperimentIdRoute,
+  ExperimentsNewRoute: ExperimentsNewRoute,
 };
 
 const ExperimentsRouteWithChildren = ExperimentsRoute._addFileChildren(
